@@ -1,0 +1,19 @@
+---
+- name: Update and upgrade system packages
+  apt:
+    update_cache: yes
+    upgrade: dist
+
+- name: Ensure dakboard user exists
+  user:
+    name: dakboard
+    shell: /bin/bash
+    groups: sudo
+    append: yes
+    create_home: yes
+
+- name: Allow dakboard passwordless sudo
+  copy:
+    dest: /etc/sudoers.d/010_dakboard
+    content: "dakboard ALL=(ALL) NOPASSWD:ALL\n"
+    mode: '0440'
