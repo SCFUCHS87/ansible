@@ -1,0 +1,59 @@
+---
+- name: Install packages for X11 kiosk mode
+  apt:
+    name:
+      - xserver-xorg
+      - x11-xserver-utils
+      - openbox
+      - chromium-browser
+      - lightdm
+      - xinit
+    state: present
+    update_cache: true
+
+- name: Enable autologin for dakboard user
+  copy:
+    dest: /etc/lightdm/lightdm.conf
+    content: |
+      [Seat:*]
+      autologin-user=dakboard
+      autologin-user-timeout=0
+      user-session=openbox
+    mode: '0644'
+
+- name: Create .xinitrc to launch Chromium in kiosk mode
+  copy:
+    dest: /home/dakboard/.xinitrc
+    content: |
+      xset s off
+      xset -dpms
+      xset s noblank
+      chromium-browser --noerrdialogs --disable-infobars --kiosk https://dakboard.com/app
+    owner: dakboard
+    group: dakboard
+    mode: '0755'
+
+- name: Set Openbox as the default session
+  copy:
+    dest: /home/dakboard/.xsession
+    content: "exec openbox-session"
+    owner: dakboard
+    group: dakboard
+    mode: '0644'
+
+- name: Ensure .bash_profile launches startx for autologin
+  copy:
+    dest: /home/dakboard/.bash_profile
+    content: |
+      [[ -z $DISPLAY && $XDG_VTNR -eq 1 ]] && exec startx
+    owner: dakboard
+    group: dakboard
+    mode: '0644'
+
+- name: Ensure dakboard owns its home directory
+  file:
+    path: /home/dakboard
+    state: directory
+    recurse: yes
+    owner: dakboard
+    group: dakboard
