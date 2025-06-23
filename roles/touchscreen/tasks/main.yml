@@ -1,0 +1,51 @@
+---
+- name: Ensure x11-xserver-utils is installed (required for xset)
+  apt:
+    name: x11-xserver-utils
+    state: present
+    update_cache: true
+  register: x11_utils_result
+  failed_when: x11_utils_result is failed
+  tags: [touchscreen, packages]
+
+- name: Add udev rule to trigger display on when touchscreen is touched
+  copy:
+    dest: /etc/udev/rules.d/99-touchscreen.rules
+    content: |
+      # Trigger systemd service to turn display on when touchscreen is touched
+      ACTION=="add", SUBSYSTEM=="input", KERNEL=="event*", ATTRS{name}=="*touchscreen*", RUN+="/usr/bin/systemctl start turn_on_display_touch.service"
+    mode: '0644'
+  tags: [touchscreen, udev]
+
+- name: Install display on/off control scripts
+  copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: '0755'
+  loop:
+    - { src: "turn_off_display.sh", dest: "/usr/local/bin/turn_off_display.sh" }
+    - { src: "turn_on_display.sh",  dest: "/usr/local/bin/turn_on_display.sh" }
+  tags: [touchscreen, scripts]
+
+- name: Install systemd services and timers for scheduled display control
+  copy:
+    src: "{{ item.src }}"
+    dest: "/etc/systemd/system/{{ item.dest }}"
+    mode: '0644'
+  loop:
+    - { src: "turn_on_display.service",  dest: "turn_on_display.service" }
+    - { src: "turn_off_display.service", dest: "turn_off_display.service" }
+    - { src: "turn_on_display.timer",    dest: "turn_on_display.timer" }
+    - { src: "turn_off_display.timer",   dest: "turn_off_display.timer" }
+  tags: [touchscreen, systemd]
+
+- name: Reload systemd to recognize new units and start timers
+  systemd:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+    daemon_reload: true
+  loop:
+    - turn_on_display.timer
+    - turn_off_display.timer
+  tags: [touchscreen, systemd, timers]
