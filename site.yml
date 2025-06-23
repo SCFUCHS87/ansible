@@ -1,2 +1,4 @@
 ---
 - import_playbook: playbooks/01_base_setup.yml
+- import_playbook: playbooks/02_optional_dakboard.yml
+  tags: [dakboard]

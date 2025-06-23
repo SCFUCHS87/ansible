@@ -8,47 +8,111 @@
       - chromium-browser
       - lightdm
       - xinit
+      - xscreensaver
     state: present
     update_cache: true
 
-- name: Enable autologin for dakboard user
-  copy:
-    dest: /etc/lightdm/lightdm.conf
-    content: |
+- name: Create dakboard user (no sudo access)
+  user:
+    name: dakboard
+    shell: /bin/bash
+    create_home: yes
+    system: no
+    groups: audio,video
+    append: yes
+
+- name: Configure LightDM autologin for dakboard user
+  blockinfile:
+    path: /etc/lightdm/lightdm.conf
+    create: yes
+    block: |
       [Seat:*]
       autologin-user=dakboard
       autologin-user-timeout=0
       user-session=openbox
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - DAKboard autologin"
     mode: '0644'
+  notify: restart lightdm
 
-- name: Create .xinitrc to launch Chromium in kiosk mode
-  copy:
-    dest: /home/dakboard/.xinitrc
-    content: |
-      xset s off
-      xset -dpms
-      xset s noblank
-      chromium-browser --noerrdialogs --disable-infobars --kiosk https://dakboard.com/app
+- name: Create openbox config directory
+  file:
+    path: /home/dakboard/.config/openbox
+    state: directory
     owner: dakboard
     group: dakboard
     mode: '0755'
 
-- name: Set Openbox as the default session
+- name: Create openbox autostart script
   copy:
-    dest: /home/dakboard/.xsession
-    content: "exec openbox-session"
+    dest: /home/dakboard/.config/openbox/autostart
+    content: |
+      # Disable screen blanking and power management
+      xset s off
+      xset -dpms
+      xset s noblank
+      
+      # Hide cursor after 3 seconds of inactivity
+      unclutter -idle 3 -root &
+      
+      # Start DAKboard in kiosk mode
+      chromium-browser \
+        --noerrdialogs \
+        --disable-infobars \
+        --disable-features=TranslateUI \
+        --disable-save-password-bubble \
+        --disable-session-crashed-bubble \
+        --disable-restore-session-state \
+        --disable-new-avatar-menu \
+        --disable-new-profile-management \
+        --disable-guest-view-cross-process-frames \
+        --disable-background-mode \
+        --disable-add-to-shelf \
+        --disable-first-run-ui \
+        --fast \
+        --fast-start \
+        --disable-default-apps \
+        --no-default-browser-check \
+        --kiosk \
+        "{{ dakboard_url | default('https://dakboard.com/app') }}"
     owner: dakboard
     group: dakboard
+    mode: '0755'
+
+- name: Install unclutter for cursor hiding
+  apt:
+    name: unclutter
+    state: present
+
+- name: Create DAKboard service for monitoring
+  copy:
+    dest: /etc/systemd/system/dakboard-monitor.service
+    content: |
+      [Unit]
+      Description=DAKboard Monitor Service
+      After=graphical-session.target
+      
+      [Service]
+      Type=simple
+      User=dakboard
+      ExecStart=/bin/bash -c 'while true; do sleep 300; pgrep chromium-browser > /dev/null || DISPLAY=:0 /home/dakboard/.config/openbox/autostart; done'
+      Restart=always
+      RestartSec=10
+      
+      [Install]
+      WantedBy=multi-user.target
     mode: '0644'
 
-- name: Ensure .bash_profile launches startx for autologin
-  copy:
-    dest: /home/dakboard/.bash_profile
-    content: |
-      [[ -z $DISPLAY && $XDG_VTNR -eq 1 ]] && exec startx
-    owner: dakboard
-    group: dakboard
-    mode: '0644'
+- name: Enable and start LightDM
+  service:
+    name: lightdm
+    enabled: yes
+    state: started
+
+- name: Enable DAKboard monitor service
+  service:
+    name: dakboard-monitor
+    enabled: yes
+    state: started
 
 - name: Ensure dakboard owns its home directory
   file:
@@ -57,3 +121,8 @@
     recurse: yes
     owner: dakboard
     group: dakboard
+
+- name: Remove any existing sudoers file for dakboard
+  file:
+    path: /etc/sudoers.d/010_dakboard
+    state: absent

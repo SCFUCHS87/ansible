@@ -2,5 +2,6 @@
 - name: Install and configure DAKboard kiosk
   hosts: pi_cluster
   become: true
+  tags: [dakboard, kiosk]
   roles:
     - dakboard

@@ -1,0 +1,10 @@
+---
+- name: restart ssh
+  service:
+    name: ssh
+    state: restarted
+
+- name: restart unattended-upgrades
+  service:
+    name: unattended-upgrades
+    state: restarted

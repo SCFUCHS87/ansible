@@ -3,17 +3,39 @@
   apt:
     update_cache: yes
     upgrade: dist
+    cache_valid_time: 3600
 
-- name: Ensure dakboard user exists
-  user:
-    name: dakboard
-    shell: /bin/bash
-    groups: sudo
-    append: yes
-    create_home: yes
+- name: Install essential packages
+  apt:
+    name:
+      - curl
+      - wget
+      - git
+      - vim
+      - htop
+      - unattended-upgrades
+    state: present
 
-- name: Allow dakboard passwordless sudo
+- name: Configure unattended upgrades for security updates
   copy:
-    dest: /etc/sudoers.d/010_dakboard
-    content: "dakboard ALL=(ALL) NOPASSWD:ALL\n"
-    mode: '0440'
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+    mode: '0644'
+  notify: restart unattended-upgrades
+
+- name: Ensure SSH is configured securely
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+    state: present
+  loop:
+    - { regexp: '^#?PermitRootLogin', line: 'PermitRootLogin no' }
+    - { regexp: '^#?PasswordAuthentication', line: 'PasswordAuthentication no' }
+  notify: restart ssh
+
+- name: Set timezone
+  timezone:
+    name: "{{ timezone | default('America/Chicago') }}"

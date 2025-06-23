@@ -1,0 +1,7 @@
+---
+- name: Base setup for Raspberry Pi
+  hosts: pi_cluster
+  become: true
+  tags: [base, always]
+  roles:
+    - base
