@@ -1,0 +1,6 @@
+[Unit]
+Description=Turn on display
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/turn_on_display.sh

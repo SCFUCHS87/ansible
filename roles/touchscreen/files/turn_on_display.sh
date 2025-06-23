@@ -1,6 +1,5 @@
 #!/bin/bash
-# turn_on_display.sh - Force HDMI display on using xset
-# Used by systemd and udev when touchscreen input is detected
+# Forces HDMI display on using xset
 
 export DISPLAY=:0
 
@@ -10,6 +9,6 @@ if ! command -v xset &>/dev/null; then
 fi
 
 xset dpms force on || {
-  echo "Failed to turn on display using xset" >&2
+  echo "Failed to turn on display." >&2
   exit 1
 }

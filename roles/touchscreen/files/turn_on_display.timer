@@ -1,8 +1,7 @@
 [Unit]
-Description=Schedule to turn on display
+Description=Turn on display at scheduled times
 
 [Timer]
-# Turn on at 05:30 and 16:30 daily
 OnCalendar=*-*-* 05:30:00,16:30:00
 Persistent=true
 
