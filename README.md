@@ -1,2 +1,2 @@
 # ansible
-a place to store all my ansible play books
+This will be where I can set up my ansible.  It will be modular.  I focuses on the the raspberry pi.
