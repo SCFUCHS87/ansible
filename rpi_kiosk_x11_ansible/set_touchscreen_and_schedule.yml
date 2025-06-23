@@ -1,0 +1,49 @@
+---
+- name: Configure touchscreen support and display on/off scheduling
+  hosts: all
+  become: true
+  tasks:
+
+    # Install necessary packages for touchscreen and display management
+    - name: Install necessary packages for touchscreen and display management
+      package:
+        name: "{{ xset_package }}"
+        state: present
+      vars:
+        xset_package: "{{ 'x11-xserver-utils' if ansible_facts['distribution'] == 'Debian' else 'xorg-x11-utils' }}"
+
+    # Create udev rule to detect touchscreen input
+    - name: Create udev rule to detect touchscreen input
+      copy:
+        dest: /etc/udev/rules.d/99-touchscreen.rules
+        content: |
+          # Udev rule to detect touchscreen press and trigger display on
+          ACTION=="add", SUBSYSTEM=="input", KERNEL=="event*", ATTRS{name}=="*touchscreen*", RUN+="/usr/bin/systemctl start turn_on_display_touch.service"
+
+    # Create systemd service to turn on the display at 05:30
+    - name: Create systemd service to turn on the display at 05:30
+      copy:
+        dest: /etc/systemd/system/turn_on_display.service
+        content: |
+          [Unit]
+          Description=Turn on HDMI Display
+
+          [Service]
+          Type=simple
+          ExecStart=/usr/bin/xset dpms force on
+
+          [Install]
+          WantedBy=multi-user.target
+      notify:
+        - Reload systemd
+
+    # Create systemd timer to turn on the display at 05:30
+    - name: Create systemd timer to turn on the display at 05:30
+      copy:
+        dest: /etc/systemd/system/turn_on_display.timer
+        content: |
+          [Unit]
+          Description=Turn on display at 05:30
+
+          [Timer]
+          O

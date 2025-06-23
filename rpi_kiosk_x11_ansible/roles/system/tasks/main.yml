@@ -1,0 +1,11 @@
+---
+- name: Ensure non-root 'dakboard' user exists
+  ansible.builtin.user:
+    name: dakboard
+    shell: /bin/bash
+    groups: video,input,dialout,tty
+    append: yes
+    create_home: yes
+    state: present
+
+
