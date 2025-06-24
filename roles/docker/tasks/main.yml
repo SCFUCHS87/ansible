@@ -5,6 +5,33 @@
   ignore_errors: true
   changed_when: false
 
+- name: Install Docker on Debian-based systems
+  shell: curl -fsSL https://get.docker.com | sh
+  when: ansible_facts['os_family'] == "Debian"
+
+- name: Install Docker on Fedora
+  become: true
+  dnf:
+    name:
+      - docker
+      - docker-compose
+    state: present
+  when: ansible_facts['os_family'] == "RedHat"
+
+- name: Install Docker on Arch
+  become: true
+  pacman:
+    name: docker
+    state: present
+  when: ansible_facts['distribution'] == "Archlinux"
+
+- name: Enable and start Docker
+  become: true
+  systemd:
+    name: docker
+    enabled: true
+    state: started
+
 - name: Install Docker prerequisites
   apt:
     name:

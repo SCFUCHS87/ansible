@@ -138,3 +138,76 @@ Integration with MQTT, Node-RED, or Zigbee2MQTT
 
 💬 Need Help?
 Contact the person who gave you this repo or open an issue on GitHub.
+
+---
+
+### 🐧 Distro Compatibility (Ubuntu, Debian, Fedora, Arch)
+
+This setup is now compatible with:
+
+| Distro         | Status  | Notes                                         |
+|----------------|---------|-----------------------------------------------|
+| Ubuntu 22.04+  | ✅ Works | Fully tested with the Docker install script   |
+| Debian 12+     | ✅ Works | Fully tested with the Docker install script   |
+| Fedora 38+     | ✅ Works | Uses native `dnf` to install Docker           |
+| Arch Linux     | ✅ Works | Uses native `pacman` to install Docker        |
+
+Docker will be installed automatically using the appropriate method for your distro:
+- Ubuntu/Debian: via Docker's official install script
+- Fedora: via `dnf install docker docker-compose`
+- Arch: via `pacman -S docker`
+
+The playbook will also enable and start the Docker service.
+
+---
+
+### ⚠️ Notes for Arch and Fedora Users
+
+- Ensure your user is in the `docker` group after install:
+```bash
+sudo usermod -aG docker $USER
+Then log out and back in, or newgrp docker.
+
+If Ansible cannot manage Docker post-install, you may need to reboot or manually start Docker with:
+
+bash
+Copy code
+sudo systemctl enable --now docker
+
+
+---
+
+### 🐧 Distro Compatibility (Ubuntu, Debian, Fedora, Arch)
+
+This setup is now compatible with:
+
+| Distro         | Status  | Notes                                         |
+|----------------|---------|-----------------------------------------------|
+| Ubuntu 22.04+  | ✅ Works | Fully tested with the Docker install script   |
+| Debian 12+     | ✅ Works | Fully tested with the Docker install script   |
+| Fedora 38+     | ✅ Works | Uses native `dnf` to install Docker           |
+| Arch Linux     | ✅ Works | Uses native `pacman` to install Docker        |
+
+Docker will be installed automatically using the appropriate method for your distro:
+- Ubuntu/Debian: via Docker's official install script
+- Fedora: via `dnf install docker docker-compose`
+- Arch: via `pacman -S docker`
+
+The playbook will also enable and start the Docker service.
+
+---
+
+### ⚠️ Notes for Arch and Fedora Users
+
+- Ensure your user is in the `docker` group after install:
+```bash
+sudo usermod -aG docker $USER
+Then log out and back in, or newgrp docker.
+
+If Ansible cannot manage Docker post-install, you may need to reboot or manually start Docker with:
+
+bash
+Copy code
+sudo systemctl enable --now docker
+
+---\n\n### 🐧 Distro Compatibility (Ubuntu, Debian, Fedora, Arch)\n\nThis setup is now compatible with:\n\n| Distro         | Status  | Notes                                         |\n|----------------|---------|-----------------------------------------------|\n| Ubuntu 22.04+  | ✅ Works | Fully tested with the Docker install script   |\n| Debian 12+     | ✅ Works | Fully tested with the Docker install script   |\n| Fedora 38+     | ✅ Works | Uses native `dnf` to install Docker           |\n| Arch Linux     | ✅ Works | Uses native `pacman` to install Docker        |\n\nDocker will be installed automatically using the appropriate method for your distro:\n- Ubuntu/Debian: via Docker's official install script\n- Fedora: via `dnf install docker docker-compose`\n- Arch: via `pacman -S docker`\n\nThe playbook will also enable and start the Docker service.\n\n---\n\n### ⚠️ Notes for Arch and Fedora Users\n\n- Ensure your user is in the `docker` group after install:\n  ```bash\n  sudo usermod -aG docker $USER\n  ```\n  Then log out and back in, or `newgrp docker`.\n\n- If Ansible cannot manage Docker post-install, you may need to reboot or manually start Docker with:\n  ```bash\n  sudo systemctl enable --now docker\n  ```
