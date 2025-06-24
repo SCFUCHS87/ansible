@@ -1,4 +1,5 @@
-> 🌍 This README is also available in: [🇩🇪 German](translations/readme.friendsetup.de.md)
+[![🌐 Translations: 8 languages](https://img.shields.io/badge/Translations-8%20languages-blue?logo=translate)](translations/index.md)
+
 ---
 
 ## 🧩 One-Liner Installer (Optional)
