@@ -1,6 +1,3 @@
-# Backup directories
-backup_*/
-*.backup
 backup/
 
 # Ansible specific
@@ -50,6 +47,3 @@ Thumbs.db
 .Trashes
 ehthumbs.db
 
-# Backup directories
-backup_*/
-backup_*/

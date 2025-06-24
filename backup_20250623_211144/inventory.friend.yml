@@ -1,0 +1,5 @@
+all:
+  hosts:
+    ha-x86:
+      ansible_host: 192.168.1.123
+      ansible_user: youruser
