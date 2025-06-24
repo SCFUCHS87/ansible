@@ -1,4 +1,11 @@
 ---
+- name: Install X11 utilities for display control
+  apt:
+    name:
+      - x11-xserver-utils
+    state: present
+    update_cache: yes
+
 - name: Ensure display control scripts are present
   copy:
     src: "{{ item }}"

@@ -20,6 +20,12 @@
     groups: video,audio
     state: present
 
+- name: Create getty service override directory
+  file:
+    path: /etc/systemd/system/getty@tty1.service.d
+    state: directory
+    mode: '0755'
+
 - name: Configure auto-login for dakboard user
   lineinfile:
     path: /etc/systemd/system/getty@tty1.service.d/autologin.conf
@@ -28,12 +34,6 @@
     create: yes
     backup: yes
   notify: reload systemd
-
-- name: Create getty service override directory
-  file:
-    path: /etc/systemd/system/getty@tty1.service.d
-    state: directory
-    mode: '0755'
 
 - name: Create .xinitrc for dakboard user
   template:
