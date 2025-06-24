@@ -1,0 +1,6 @@
+---
+- name: Deploy Traefik Ingress Controller
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: present
+    definition: "{{ lookup('file', 'files/traefik-deployment.yaml') | from_yaml_all }}"
