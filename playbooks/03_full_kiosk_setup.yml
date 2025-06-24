@@ -1,9 +1,0 @@
----
-- name: Complete Raspberry Pi Kiosk Setup
-  hosts: pi_cluster
-  become: true
-  tags: [full, kiosk, complete]
-  roles:
-    - base
-    - dakboard
-    - touchscreen
