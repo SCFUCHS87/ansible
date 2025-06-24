@@ -1,4 +1,9 @@
-# Friend Setup Playbook: Enhanced Edition
+## Friend Setup (x86 with Docker)
+
+Looking to install Home Assistant or Homebridge on an x86 system?
+
+👉 See [readme.friendsetup.md](readme.friendsetup.md)
+
 
 This Ansible setup is tailored for x86 systems and provides optional installation of Home Assistant and Homebridge via Docker, with improved security and reliability.
 
