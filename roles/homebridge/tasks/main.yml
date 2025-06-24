@@ -1,15 +1,29 @@
 ---
+# roles/homebridge/tasks/main.yml
 - name: Pull Homebridge image
   docker_image:
     name: "oznu/homebridge:latest"
     source: pull
+
+- name: Check if Homebridge container exists
+  docker_container_info:
+    name: homebridge
+  register: hb_container_info
+
+- name: Remove existing Homebridge container if force recreate
+  docker_container:
+    name: homebridge
+    state: absent
+  when: 
+    - hb_container_info.exists
+    - force_recreate | default(false) | bool
 
 - name: Run Homebridge container
   docker_container:
     name: homebridge
     image: "oznu/homebridge:latest"
     restart_policy: unless-stopped
-    recreate: true
+    recreate: "{{ force_recreate | default(false) }}"
     ports:
       - "{{ homebridge_port | default('8581') }}:8581"
     volumes:
@@ -18,15 +32,34 @@
       TZ: "{{ timezone | default('UTC') }}"
       PGID: "1000"
       PUID: "1000"
+      HOMEBRIDGE_CONFIG_UI: "1"
+      HOMEBRIDGE_CONFIG_UI_PORT: "8581"
 
 - name: Wait for Homebridge to start
   wait_for:
     host: "{{ ansible_default_ipv4.address }}"
-    port: 8581
+    port: "{{ homebridge_port | default('8581') }}"
     delay: 5
-    timeout: 30
-  ignore_errors: true
+    timeout: 60
+  register: hb_startup
 
-- name: Display Homebridge access info
+- name: Display Homebridge startup result
   debug:
-    msg: "Homebridge available at: http://{{ ansible_default_ipv4.address }}:8581"
+    msg: |
+      {% if hb_startup.failed %}
+      ⚠️  Homebridge may be starting up - check logs with: docker logs homebridge
+      {% else %}
+      ✅ Homebridge is running at: http://{{ ansible_default_ipv4.address }}:{{ homebridge_port | default('8581') }}
+      {% endif %}
+
+- name: Show Homebridge first-time setup info
+  debug:
+    msg: |
+      📋 Homebridge First Setup:
+      1. Visit: http://{{ ansible_default_ipv4.address }}:{{ homebridge_port | default('8581') }}
+      2. Default login: admin / admin
+      3. Change the default password immediately!
+      4. Install plugins for your smart home devices
+      
+      📁 Configuration files: {{ hb_config_dir | default('/opt/homebridge') }}
+  when: not hb_container_info.exists or (force_recreate | default(false) | bool)

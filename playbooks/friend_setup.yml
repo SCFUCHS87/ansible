@@ -4,23 +4,97 @@
   become: yes
   gather_facts: yes
   
-vars_prompt:
-  - name: ha_config_dir
-    prompt: "Home Assistant config volume path (default: /opt/homeassistant)"
-    private: no
-    default: "/opt/homeassistant"
+  vars_prompt:
+    - name: install_homeassistant
+      prompt: "Install Home Assistant? (yes/no)"
+      default: "yes"
+      private: no
+    
+    - name: install_homebridge
+      prompt: "Install Homebridge? (yes/no)"
+      default: "no"
+      private: no
 
-  - name: homebridge_port
-    prompt: "Homebridge UI port (default: 8581)"
-    private: no
-    default: "8581"
+    - name: ha_config_dir
+      prompt: "Home Assistant config volume path (default: /opt/homeassistant)"
+      private: no
+      default: "/opt/homeassistant"
+      when: install_homeassistant | default(false) | bool
 
+    - name: homebridge_port
+      prompt: "Homebridge UI port (default: 8581)"
+      private: no
+      default: "8581"
+      when: install_homebridge | default(false) | bool
+
+    - name: force_recreate
+      prompt: "Force recreate containers if they exist? (yes/no)"
+      private: no
+      default: "no"
 
   pre_tasks:
     - name: Ensure we're running on x86_64
       fail:
         msg: "This playbook is designed for x86_64 systems only"
       when: ansible_architecture != "x86_64"
+
+    - name: Check for existing Docker containers
+      docker_container_info:
+        name: "{{ item }}"
+      register: existing_containers
+      loop:
+        - homeassistant
+        - homebridge
+      ignore_errors: true
+
+    - name: Display existing container warning
+      debug:
+        msg: |
+          WARNING: Found existing containers:
+          {% for container in existing_containers.results %}
+          {% if container.exists %}
+          - {{ container.container.Name[1:] }} ({{ container.container.State.Status }})
+          {% endif %}
+          {% endfor %}
+          {% if force_recreate | bool %}
+          These will be recreated with new settings.
+          {% else %}
+          Existing containers will be updated in place.
+          {% endif %}
+      when: existing_containers.results | selectattr('exists') | list | length > 0
+
+    - name: Check port conflicts for Home Assistant
+      wait_for:
+        host: "{{ ansible_default_ipv4.address }}"
+        port: 8123
+        timeout: 1
+      register: ha_port_check
+      ignore_errors: true
+      when: install_homeassistant | bool
+
+    - name: Check port conflicts for Homebridge
+      wait_for:
+        host: "{{ ansible_default_ipv4.address }}"
+        port: "{{ homebridge_port | default('8581') }}"
+        timeout: 1
+      register: hb_port_check
+      ignore_errors: true
+      when: install_homebridge | bool
+
+    - name: Warning about port conflicts
+      debug:
+        msg: |
+          WARNING: Port conflicts detected!
+          {% if ha_port_check is defined and ha_port_check.failed == false %}
+          - Port 8123 is already in use (Home Assistant)
+          {% endif %}
+          {% if hb_port_check is defined and hb_port_check.failed == false %}
+          - Port {{ homebridge_port | default('8581') }} is already in use (Homebridge)
+          {% endif %}
+          Continuing with deployment - existing containers will be managed.
+      when: >
+        (ha_port_check is defined and ha_port_check.failed == false) or
+        (hb_port_check is defined and hb_port_check.failed == false)
 
   roles:
     - role: base
@@ -30,9 +104,27 @@ vars_prompt:
       tags: [docker, always]
 
   tasks:
+    - name: Stop existing Home Assistant container if force recreate
+      docker_container:
+        name: homeassistant
+        state: stopped
+      when: 
+        - install_homeassistant | bool
+        - force_recreate | bool
+      ignore_errors: true
+
+    - name: Stop existing Homebridge container if force recreate
+      docker_container:
+        name: homebridge
+        state: stopped
+      when: 
+        - install_homebridge | bool
+        - force_recreate | bool
+      ignore_errors: true
+
     - name: Create directories for Home Assistant
       file:
-        path: /opt/homeassistant
+        path: "{{ ha_config_dir | default('/opt/homeassistant') }}"
         state: directory
         owner: "{{ ansible_user }}"
         group: "{{ ansible_user }}"
@@ -42,12 +134,15 @@ vars_prompt:
     - name: Deploy Home Assistant
       include_role:
         name: homeassistant
+      vars:
+        ha_config_dir: "{{ ha_config_dir | default('/opt/homeassistant') }}"
+        force_recreate: "{{ force_recreate | default(false) }}"
       when: install_homeassistant | bool
       tags: [homeassistant]
 
     - name: Create directories for Homebridge
       file:
-        path: /opt/homebridge
+        path: "{{ hb_config_dir | default('/opt/homebridge') }}"
         state: directory
         owner: "{{ ansible_user }}"
         group: "{{ ansible_user }}"
@@ -57,17 +152,40 @@ vars_prompt:
     - name: Deploy Homebridge
       include_role:
         name: homebridge
+      vars:
+        hb_config_dir: "{{ hb_config_dir | default('/opt/homebridge') }}"
+        homebridge_port: "{{ homebridge_port | default('8581') }}"
+        force_recreate: "{{ force_recreate | default(false) }}"
       when: install_homebridge | bool
       tags: [homebridge]
 
   post_tasks:
+    - name: Get final container status
+      docker_container_info:
+        name: "{{ item }}"
+      register: final_containers
+      loop:
+        - homeassistant
+        - homebridge
+      ignore_errors: true
+
     - name: Display service information
       debug:
         msg: |
-          Setup complete! Services available:
-          {% if install_homeassistant | bool %}
-          - Home Assistant: http://{{ ansible_default_ipv4.address }}:8123
+          🎉 Setup complete! Services available:
+          {% for container in final_containers.results %}
+          {% if container.exists and container.container.State.Status == 'running' %}
+          {% if container.container.Name[1:] == 'homeassistant' %}
+          ✅ Home Assistant: http://{{ ansible_default_ipv4.address }}:8123
+             Config: {{ ha_config_dir | default('/opt/homeassistant') }}
+          {% elif container.container.Name[1:] == 'homebridge' %}
+          ✅ Homebridge: http://{{ ansible_default_ipv4.address }}:{{ homebridge_port | default('8581') }}
+             Config: {{ hb_config_dir | default('/opt/homebridge') }}
           {% endif %}
-          {% if install_homebridge | bool %}
-          - Homebridge: http://{{ ansible_default_ipv4.address }}:8581
           {% endif %}
+          {% endfor %}
+          
+          🔧 Management commands:
+          - View logs: docker logs <container_name>
+          - Restart: docker restart <container_name>
+          - Stop: docker stop <container_name>

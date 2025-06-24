@@ -1,28 +1,61 @@
 ---
+# roles/homeassistant/tasks/main.yml
 - name: Pull Home Assistant image
   docker_image:
     name: "ghcr.io/home-assistant/home-assistant:{{ homeassistant_version | default('stable') }}"
     source: pull
 
+- name: Check if Home Assistant container exists
+  docker_container_info:
+    name: homeassistant
+  register: ha_container_info
+
+- name: Remove existing Home Assistant container if force recreate
+  docker_container:
+    name: homeassistant
+    state: absent
+  when: 
+    - ha_container_info.exists
+    - force_recreate | default(false) | bool
+
 - name: Run Home Assistant container
   docker_container:
     name: homeassistant
-    image: "ghcr.io/home-assistant/home-assistant:stable"
+    image: "ghcr.io/home-assistant/home-assistant:{{ homeassistant_version | default('stable') }}"
     restart_policy: unless-stopped
-    recreate: true
+    recreate: "{{ force_recreate | default(false) }}"
     network_mode: host
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - "{{ ha_config_dir | default('/opt/homeassistant') }}:/config"
+    env:
+      TZ: "{{ timezone | default('UTC') }}"
 
 - name: Wait for Home Assistant to start
   wait_for:
     host: "{{ ansible_default_ipv4.address }}"
     port: 8123
     delay: 10
-    timeout: 60
-  ignore_errors: true
+    timeout: 120
+  register: ha_startup
 
-- name: Display Home Assistant access info
+- name: Display Home Assistant startup result
   debug:
-    msg: "Home Assistant available at: http://{{ ansible_default_ipv4.address }}:8123"
+    msg: |
+      {% if ha_startup.failed %}
+      ⚠️  Home Assistant may be starting up - check logs with: docker logs homeassistant
+      {% else %}
+      ✅ Home Assistant is running at: http://{{ ansible_default_ipv4.address }}:8123
+      {% endif %}
+
+- name: Show Home Assistant first-time setup info
+  debug:
+    msg: |
+      📋 Home Assistant First Setup:
+      1. Visit: http://{{ ansible_default_ipv4.address }}:8123
+      2. Create your admin account
+      3. Configure your location and units
+      4. Install HACS (optional): https://hacs.xyz/
+      
+      📁 Configuration files: {{ ha_config_dir | default('/opt/homeassistant') }}
+  when: not ha_container_info.exists or (force_recreate | default(false) | bool)
