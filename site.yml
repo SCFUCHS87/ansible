@@ -1,4 +1,7 @@
 ---
+# Modular Ansible site playbook
+# Use feature flags in group_vars/all.yml to control what gets deployed
+
 - import_playbook: playbooks/01_base_setup.yml
 
 - import_playbook: playbooks/02_kiosk_touchscreen.yml
@@ -13,10 +16,8 @@
 - import_playbook: playbooks/05_containers_homeassistant.yml
   when: enable_homeassistant | default(false)
 
-- import_playbook: playbooks/06_containers_cloudflare.yml
-  when: enable_cloudflare | default(false)
-
 - import_playbook: playbooks/07_k3s_control_plane.yml
   when: enable_k3s | default(false)
+
 - import_playbook: playbooks/08_k3s_worker_nodes.yml
-  when: enable_k3s | default(false)
+  when: enable_k3s | default(false) and groups['workers'] is defined and groups['workers'] | length > 0

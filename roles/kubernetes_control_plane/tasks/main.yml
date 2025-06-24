@@ -5,6 +5,12 @@
   args:
     creates: /etc/systemd/system/k3s.service
 
+- name: Wait for k3s to be ready
+  wait_for:
+    port: 6443
+    host: "{{ ansible_host }}"
+    delay: 10
+
 - name: Get k3s token
   slurp:
     src: /var/lib/rancher/k3s/server/node-token
@@ -13,3 +19,10 @@
 - name: Set k3s token fact
   set_fact:
     k3s_token: "{{ k3s_token_raw['content'] | b64decode | trim }}"
+
+- name: Share k3s token with other hosts
+  add_host:
+    name: "{{ item }}"
+    k3s_token: "{{ k3s_token }}"
+  loop: "{{ groups['all'] }}"
+  when: k3s_token is defined

@@ -1,6 +1,0 @@
----
-- name: Deploy Cloudflare Tunnel and Reverse Proxy
-  hosts: all
-  become: true
-  roles:
-    - k8s_cloudflare

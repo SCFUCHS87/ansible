@@ -14,4 +14,4 @@ enable_kiosk: true
 enable_dakboard: true
 enable_containers: true
 enable_homeassistant: false
-enable_cloudflare: false
+enable_k3s: false
