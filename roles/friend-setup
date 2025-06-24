@@ -1,0 +1,74 @@
+function setup_friend_branch
+    set base_dir (pwd)
+    echo "Setting up friend-setup structure in: $base_dir"
+
+    mkdir -p $base_dir/playbooks
+    mkdir -p $base_dir/roles/docker/tasks
+    mkdir -p $base_dir/roles/homeassistant/tasks
+    mkdir -p $base_dir/roles/homebridge/tasks
+
+    # Create inventory
+    echo 'all:
+  hosts:
+    ha-x86:
+      ansible_host: 192.168.1.123
+      ansible_user: youruser' > $base_dir/inventory.friend.yml
+
+    # Create playbook
+    echo '- name: Friend\'s Home Automation Setup
+  hosts: all
+  become: true
+  vars_prompt:
+    - name: install_homeassistant
+      prompt: "Install Home Assistant? (yes/no)"
+      private: no
+    - name: install_homebridge
+      prompt: "Install Homebridge? (yes/no)"
+      private: no
+
+  roles:
+    - docker
+    - { role: homeassistant, when: install_homeassistant == "yes" }
+    - { role: homebridge, when: install_homebridge == "yes" }' > $base_dir/playbooks/friend_setup.yml
+
+    # Docker role
+    echo '- name: Check if Docker is installed
+  command: which docker
+  register: docker_check
+  ignore_errors: true
+
+- name: Install Docker
+  shell: |
+    curl -fsSL https://get.docker.com | sh
+  when: docker_check.rc != 0' > $base_dir/roles/docker/tasks/main.yml
+
+    # Home Assistant role
+    echo '- name: Run Home Assistant container
+  docker_container:
+    name: homeassistant
+    image: "ghcr.io/home-assistant/home-assistant:stable"
+    restart_policy: always
+    network_mode: host
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /opt/homeassistant:/config' > $base_dir/roles/homeassistant/tasks/main.yml
+
+    # Homebridge role
+    echo '- name: Run Homebridge container
+  docker_container:
+    name: homebridge
+    image: "oznu/homebridge:latest"
+    restart_policy: always
+    ports:
+      - "8581:8581"
+    volumes:
+      - /opt/homebridge:/homebridge' > $base_dir/roles/homebridge/tasks/main.yml
+
+    echo "✅ Files written. Staging Git commit..."
+    git add .
+    git commit -m "Restructured friend-setup with optional Docker roles"
+    git push
+    echo "✅ friend-setup branch is updated and pushed!"
+end
+
+setup_friend_branch
