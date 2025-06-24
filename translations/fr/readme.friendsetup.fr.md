@@ -1,4 +1,4 @@
-> 🌍 Ce README est également disponible en : [🇫🇷 Français](translations/readme.friendsetup.fr.md)
+> 🌍 Ce README est également disponible en ： [🇫🇷 Français](translations/readme.friendsetup.fr.md)
 
 ---
 
@@ -7,12 +7,12 @@
 Vous voulez l'essayer sans le cloner manuellement ?
 
 ```bash
-curl -sL https://raw.githubusercontent.com/SCFUCHS87/ansible/friend-setup/install_friend_setup.sh | bash
+curl -sL https：//raw.githubusercontent.com/SCFUCHS87/ansible/friend-setup/install_friend_setup.sh | bash
 ```
 
-# Friend Setup : Home Assistant + Homebridge (x86 via Ansible + Docker)
+# Friend Setup ： Home Assistant + Homebridge (x86 via Ansible + Docker)
 
-Ceci est un playbook Ansible minimal pour déployer Docker, Home Assistant et Homebridge sur un système Linux x86 propre. Il vérifie Docker, l'installe s'il manque, puis vous demande d'installer Home Assistant, Homebridge ou les deux.
+Ceci est un playbook Ansible minimal pour déployer Docker, Home Assistant et Homebridge sur un système Linux x86 propre. Il vérifie Docker, l'installe s'il manque, puis vous propose d'installer Home Assistant, Homebridge ou les deux.
 
 ---
 
@@ -29,9 +29,9 @@ Ceci est un playbook Ansible minimal pour déployer Docker, Home Assistant et Ho
 ## ✅ Ce que cela fait
 
 - Installe Docker (s'il n'est pas déjà installé)
-- Demande l'installation optionnelle de :
-  - [Home Assistant](https://www.home-assistant.io/)
-  - [Homebridge](https://homebridge.io/)
+- Demande l'installation optionnelle de ：
+  - [Home Assistant](https：//www.home-assistant.io/)
+  - [Homebridge](https：//homebridge.io/)
 - Déploie chaque service comme un conteneur Docker autonome avec des volumes persistants
 
 ---
@@ -53,27 +53,27 @@ site.yml                     # Point d'entrée pour tout
 
 ## 🚀 Comment utiliser
 
-1. **Cloner le dépôt et basculer vers la branche `friend-setup` :**
+1. **Cloner le dépôt et basculer vers la branche `friend-setup` ：**
    ```bash
-   git clone --branch friend-setup https://github.com/SCFUCHS87/ansible.git
+   git clone --branch friend-setup https：//github.com/SCFUCHS87/ansible.git
    cd ansible
    ```
 
-2. **Modifier inventory.friend.yml avec l'IP et l'utilisateur de votre machine x86 :**
+2. **Modifier inventory.friend.yml avec l'IP et l'utilisateur de votre machine x86 ：**
    ```yaml
-   all:
-     hosts:
-       ha-x86:
-         ansible_host: 192.168.1.123
-         ansible_user: votreutilisateur
+   all：
+     hosts：
+       ha-x86：
+         ansible_host： 192.168.1.123
+         ansible_user： votreutilisateur
    ```
 
-3. **Exécuter le playbook :**
+3. **Exécuter le playbook ：**
    ```bash
    ansible-playbook -i inventory.friend.yml site.yml
    ```
 
-4. **Répondre aux invites :**
+4. **Répondre aux invites ：**
    - Installer Home Assistant ? (yes/no)
    - Installer Homebridge ? (yes/no)
 
@@ -81,15 +81,15 @@ site.yml                     # Point d'entrée pour tout
 
 ## 🧾 Sortie
 
-Si sélectionnés, les conteneurs suivants s'exécuteront :
+Si sélectionnés, les conteneurs suivants s'exécuteront ：
 
 **Home Assistant**
-- Accessible à : http://votre-ip:8123
-- Données stockées dans : /opt/homeassistant
+- Accessible à ： http：//votre-ip：8123
+- Données stockées dans ： /opt/homeassistant
 
 **Homebridge**  
-- Accessible à : http://votre-ip:8581
-- Données stockées dans : /opt/homebridge
+- Accessible à ： http：//votre-ip：8581
+- Données stockées dans ： /opt/homebridge
 
 Pour redémarrer, arrêter ou voir les logs, utilisez les commandes Docker standard.
 
@@ -97,9 +97,9 @@ Pour redémarrer, arrêter ou voir les logs, utilisez les commandes Docker stand
 
 ## 🛠 Prérequis
 
-- **Machine Linux x86 fraîche** (ex. Ubuntu, Debian)
+- **Machine Linux x86 fraîche** (por exemplo, Ubuntu ou Debian)
 - **Accès SSH** depuis votre machine de contrôle Ansible
-- **Python + Ansible** installé sur la machine de contrôle :
+- **Python + Ansible** installé sur la machine de contrôle ：
   ```bash
   sudo apt update && sudo apt install ansible
   ```
@@ -108,7 +108,7 @@ Pour redémarrer, arrêter ou voir les logs, utilisez les commandes Docker stand
 
 ## 🧩 Améliorations optionnelles
 
-Vous pouvez étendre cette configuration en ajoutant :
+Vous pouvez étendre cette configuration en ajoutant ：
 
 - **Watchtower** — mises à jour automatiques des conteneurs Docker
 - **Cloudflare Tunnel** — accès public sécurisé
@@ -120,13 +120,13 @@ Vous pouvez étendre cette configuration en ajoutant :
 ## 💬 Commentaires et Support
 
 ### 🐛 Vous avez trouvé un problème ?
-[Signaler un bug ou un problème](https://github.com/SCFUCHS87/ansible/issues/new?labels=friend-setup&template=support-request.md)
+[Signaler un bug ou un problème](https：//github.com/SCFUCHS87/ansible/issues/new?labels=friend-setup&template=support-request.md)
 
 ### 💡 Vous avez des commentaires ?
-[Partagez votre expérience](https://github.com/SCFUCHS87/ansible/issues/new?labels=friend-setup&template=friend-feedback.md)
+[Partagez votre expérience](https：//github.com/SCFUCHS87/ansible/issues/new?labels=friend-setup&template=friend-feedback.md)
 
 ### 💬 Questions générales ?
-[Démarrer une discussion](https://github.com/SCFUCHS87/ansible/discussions) ou envoyez un email directement !
+[Démarrer une discussion](https：//github.com/SCFUCHS87/ansible/discussions) ou envoyez un email directement !
 
 ### 📧 Contact direct
 Vous préférez l'email ? Contactez-nous directement pour toute question ou suggestion.
@@ -135,7 +135,7 @@ Vous préférez l'email ? Contactez-nous directement pour toute question ou sugg
 
 ### 🐧 Compatibilité des Distributions (Ubuntu, Debian, Fedora, Arch)
 
-Cette configuration est maintenant compatible avec :
+Cette configuration est maintenant compatible avec ：
 
 | Distribution   | État    | Notes                                         |
 |----------------|---------|-----------------------------------------------|
@@ -144,10 +144,10 @@ Cette configuration est maintenant compatible avec :
 | Fedora 38+     | ✅ Fonctionne | Utilise `dnf` natif pour installer Docker    |
 | Arch Linux     | ✅ Fonctionne | Utilise `pacman` natif pour installer Docker |
 
-Docker sera installé automatiquement en utilisant la méthode appropriée pour votre distribution :
-- Ubuntu/Debian : via le script d'installation officiel de Docker
-- Fedora : via `dnf install docker docker-compose`
-- Arch : via `pacman -S docker`
+Docker sera installé automatiquement en utilisant la méthode appropriée pour votre distribution ：
+- Ubuntu/Debian ： via le script d'installation officiel de Docker
+- Fedora ： via `dnf install docker docker-compose`
+- Arch ： via `pacman -S docker`
 
 Le playbook activera et démarrera également le service Docker.
 
@@ -155,13 +155,13 @@ Le playbook activera et démarrera également le service Docker.
 
 ### ⚠️ Notes pour les utilisateurs d'Arch et Fedora
 
-- Assurez-vous que votre utilisateur est dans le groupe `docker` après l'installation :
+- Assurez-vous que votre utilisateur est dans le groupe `docker` après l'installation ：
   ```bash
   sudo usermod -aG docker $USER
   ```
   Puis déconnectez-vous et reconnectez-vous, ou utilisez `newgrp docker`.
 
-- Si Ansible ne peut pas gérer Docker après l'installation, vous pourriez avoir besoin de redémarrer ou de démarrer Docker manuellement avec :
+- Si Ansible ne peut pas gérer Docker après l'installation, vous pourriez avoir besoin de redémarrer ou de démarrer Docker manuellement avec ：
   ```bash
   sudo systemctl enable --now docker
   ```
