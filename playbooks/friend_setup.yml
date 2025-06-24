@@ -4,16 +4,17 @@
   become: yes
   gather_facts: yes
   
-  vars_prompt:
-    - name: install_homeassistant
-      prompt: "Install Home Assistant? (yes/no)"
-      default: "yes"
-      private: no
-    
-    - name: install_homebridge
-      prompt: "Install Homebridge? (yes/no)"
-      default: "no"
-      private: no
+vars_prompt:
+  - name: ha_config_dir
+    prompt: "Home Assistant config volume path (default: /opt/homeassistant)"
+    private: no
+    default: "/opt/homeassistant"
+
+  - name: homebridge_port
+    prompt: "Homebridge UI port (default: 8581)"
+    private: no
+    default: "8581"
+
 
   pre_tasks:
     - name: Ensure we're running on x86_64

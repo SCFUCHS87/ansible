@@ -9,10 +9,11 @@
     name: homebridge
     image: "oznu/homebridge:latest"
     restart_policy: unless-stopped
+    recreate: true
     ports:
-      - "8581:8581"
+      - "{{ homebridge_port | default('8581') }}:8581"
     volumes:
-      - /opt/homebridge:/homebridge
+      - "{{ hb_config_dir | default('/opt/homebridge') }}:/homebridge"
     env:
       TZ: "{{ timezone | default('UTC') }}"
       PGID: "1000"

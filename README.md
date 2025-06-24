@@ -7,6 +7,8 @@ Looking to install Home Assistant or Homebridge on an x86 system?
 
 This Ansible setup is tailored for x86 systems and provides optional installation of Home Assistant and Homebridge via Docker, with improved security and reliability.
 
+If you already have Docker containers running, make sure the ports 8123 and 8581 are not in use. You’ll be prompted to override them during setup.
+
 ---
 
 ## 🧾 What This Does
