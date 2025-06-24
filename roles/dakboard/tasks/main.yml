@@ -1,0 +1,58 @@
+---
+# roles/dakboard/tasks/main.yml
+- name: Install X11 and Chromium packages
+  apt:
+    name:
+      - xserver-xorg
+      - xinit
+      - chromium-browser
+      - x11-xserver-utils
+    state: present
+    update_cache: yes
+
+- name: Create dakboard user
+  user:
+    name: dakboard
+    comment: "DAKboard Kiosk User"
+    shell: /bin/bash
+    home: /home/dakboard
+    create_home: yes
+    groups: video,audio
+    state: present
+
+- name: Configure auto-login for dakboard user
+  lineinfile:
+    path: /etc/systemd/system/getty@tty1.service.d/autologin.conf
+    line: "ExecStart=-/sbin/agetty --autologin dakboard --noclear %I $TERM"
+    regexp: "^ExecStart="
+    create: yes
+    backup: yes
+  notify: reload systemd
+
+- name: Create getty service override directory
+  file:
+    path: /etc/systemd/system/getty@tty1.service.d
+    state: directory
+    mode: '0755'
+
+- name: Create .xinitrc for dakboard user
+  template:
+    src: xinitrc.j2
+    dest: /home/dakboard/.xinitrc
+    owner: dakboard
+    group: dakboard
+    mode: '0755'
+
+- name: Create .bash_profile for dakboard user to start X on login
+  template:
+    src: bash_profile.j2
+    dest: /home/dakboard/.bash_profile
+    owner: dakboard
+    group: dakboard
+    mode: '0644'
+
+- name: Disable screen blanking and power management
+  template:
+    src: disable-blanking.sh.j2
+    dest: /usr/local/bin/disable-blanking.sh
+    mode: '0755'

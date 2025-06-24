@@ -1,0 +1,43 @@
+# roles/dakboard/templates/xinitrc.j2
+#!/bin/bash
+
+# Disable screen blanking and power management
+/usr/local/bin/disable-blanking.sh
+
+# Start Chromium in kiosk mode
+exec chromium-browser \
+  --kiosk \
+  --no-sandbox \
+  --disable-infobars \
+  --disable-features=TranslateUI \
+  --disable-ipc-flooding-protection \
+  --disable-background-timer-throttling \
+  --disable-backgrounding-occluded-windows \
+  --disable-renderer-backgrounding \
+  --disable-features=VizDisplayCompositor \
+  --noerrdialogs \
+  --disable-component-update \
+  --autoplay-policy=no-user-gesture-required \
+  --force-device-scale-factor=1 \
+  --start-fullscreen \
+  "{{ dakboard_url }}"
+
+---
+
+# roles/dakboard/templates/bash_profile.j2
+# ~/.bash_profile for dakboard user
+
+# Start X server automatically on login to tty1
+if [[ ! $DISPLAY && $XDG_VTNR -eq 1 ]]; then
+  exec startx
+fi
+
+---
+
+# roles/dakboard/templates/disable-blanking.sh.j2
+#!/bin/bash
+
+# Disable screen blanking and power management
+xset s off         # Don't activate screensaver
+xset -dpms         # Disable DPMS (Display Power Management Signaling)
+xset s noblank     # Don't blank the video device
