@@ -1,3 +1,4 @@
+> 🌍 This README is also available in: [🇩🇪 German](translations/readme.friendsetup.de.md)
 ---
 
 ## 🧩 One-Liner Installer (Optional)
