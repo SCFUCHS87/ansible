@@ -1,9 +1,0 @@
-[Unit]
-Description=Turn off display at scheduled times
-
-[Timer]
-OnCalendar=*-*-* 09:00:00,21:00:00
-Persistent=true
-
-[Install]
-WantedBy=timers.target

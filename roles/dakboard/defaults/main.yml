@@ -1,6 +1,0 @@
----
-# Default DAKboard URL - can be overridden in group_vars or host_vars
-dakboard_url: "https://dakboard.com/app"
-
-# Chromium browser additional options
-chromium_extra_args: ""
