@@ -1,0 +1,7 @@
+[Unit]
+Description=Turn on HDMI display (Touch)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/turn_on_display.sh
+ExecStartPost=/bin/systemctl start turn_off_display_after_touch.timer

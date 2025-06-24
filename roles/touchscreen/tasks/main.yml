@@ -33,3 +33,24 @@
     - turn_off_display_am.timer
     - turn_on_display_pm.timer
     - turn_off_display_pm.timer
+
+- name: Install udev rule for touchscreen wake
+  copy:
+    src: 99-touchscreen.rules
+    dest: /etc/udev/rules.d/99-touchscreen.rules
+    mode: '0644'
+
+- name: Install systemd units for touchscreen wake and auto-off
+  template:
+    src: "{{ item.src }}"
+    dest: "/etc/systemd/system/{{ item.dest }}"
+    mode: '0644'
+  loop:
+    - { src: "turn_on_display_touch.service.j2", dest: "turn_on_display_touch.service" }
+    - { src: "turn_off_display_after_touch.service.j2", dest: "turn_off_display_after_touch.service" }
+    - { src: "turn_off_display_after_touch.timer.j2", dest: "turn_off_display_after_touch.timer" }
+
+- name: Enable auto-off timer (only activates when touch is detected)
+  systemd:
+    name: turn_off_display_after_touch.timer
+    enabled: true
