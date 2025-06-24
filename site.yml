@@ -1,4 +1,3 @@
 ---
-- import_playbook: playbooks/01_base_setup.yml
-- import_playbook: playbooks/02_optional_dakboard.yml
-  tags: [dakboard]
+# Main site playbook - customize for your needs
+# - import_playbook: playbooks/your_project.yml
