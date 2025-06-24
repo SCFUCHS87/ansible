@@ -112,3 +112,19 @@ Python + Ansible installed on the control machine:
 bash
 Copy code
 sudo apt update && sudo apt install ansible
+
+
+🧩 Optional Improvements
+You can expand this setup by adding:
+
+Watchtower — auto-update Docker containers
+
+Cloudflare Tunnel — secure public access
+
+Nginx Proxy Manager — frontend for reverse proxy + SSL
+
+Integration with MQTT, Node-RED, or Zigbee2MQTT
+
+
+💬 Need Help?
+Contact the person who gave you this repo or open an issue on GitHub.
