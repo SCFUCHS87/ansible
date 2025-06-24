@@ -3,3 +3,7 @@ all:
     ha-x86:
       ansible_host: 192.168.1.123
       ansible_user: youruser
+
+---
+
+Would you like me to push this script for you, or would you prefer to copy it in manually and commit?

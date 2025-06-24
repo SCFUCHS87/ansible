@@ -1,3 +1,13 @@
+---
+
+## 🧩 One-Liner Installer (Optional)
+
+Want to try this without cloning manually?
+
+```bash
+curl -sL https://raw.githubusercontent.com/SCFUCHS87/ansible/friend-setup/install_friend_setup.sh | bash
+
+
 # Friend Setup: Home Assistant + Homebridge (x86 via Ansible + Docker)
 
 This is a minimal Ansible playbook for deploying Docker, Home Assistant, and Homebridge on a clean x86 Linux system. It checks for Docker, installs it if missing, and then prompts you to install either or both of the home automation services.
