@@ -1,87 +1,150 @@
-# Friend Setup Playbook: friend_setup.yml
+# Friend Setup Playbook: Enhanced Edition
 
-This Ansible setup is tailored for x86 systems and provides optional installation of Home Assistant and Homebridge via Docker.
+This Ansible setup is tailored for x86 systems and provides optional installation of Home Assistant and Homebridge via Docker, with improved security and reliability.
 
 ---
 
 ## 🧾 What This Does
-- ✅ Detects and installs Docker if it's not already present.
-- ✅ Prompts you whether to install:
-  - [Home Assistant](https://www.home-assistant.io/)
-  - [Homebridge](https://homebridge.io/)
-- ✅ Deploys each in its own Docker container.
+- ✅ Secures the system with SSH hardening and automatic security updates
+- ✅ Detects and properly installs Docker with all dependencies
+- ✅ Prompts you whether to install Home Assistant and/or Homebridge
+- ✅ Configures firewall rules for enabled services
+- ✅ Deploys each service in its own Docker container with health checks
+- ✅ Provides cleanup capabilities
 
 ---
 
-## 📁 Files Included
+## 📁 Files Structure
 
 ```
-inventory.friend.yml
-playbooks/
-  └── friend_setup.yml
-roles/
-  ├── docker/
-  │   └── tasks/main.yml
-  ├── homeassistant/
-  │   └── tasks/main.yml
-  └── homebridge/
-      └── tasks/main.yml
+├── inventory.friend.yml          # Host inventory
+├── site.yml                      # Main entry point
+├── group_vars/
+│   └── all.yml                   # Common variables
+├── playbooks/
+│   ├── friend_setup.yml          # Main setup playbook
+│   └── cleanup.yml               # Service removal playbook
+└── roles/
+    ├── base/                     # System hardening & essentials
+    ├── docker/                   # Docker installation
+    ├── firewall/                 # UFW firewall setup
+    ├── homeassistant/           # Home Assistant deployment
+    └── homebridge/              # Homebridge deployment
 ```
 
 ---
 
 ## 🚀 How to Use
 
-1. Clone the repository:
+1. **Clone and checkout:**
    ```bash
    git clone https://github.com/SCFUCHS87/ansible.git
    cd ansible
    git checkout friend-setup
    ```
 
-2. Edit `inventory.friend.yml` if needed:
-   ```yaml
-   all:
-     hosts:
-       ha-x86:
-         ansible_host: 192.168.1.123
-         ansible_user: youruser
-   ```
-
-3. Run the playbook:
+2. **Update inventory:**
    ```bash
-   ansible-playbook -i inventory.friend.yml playbooks/friend_setup.yml
+   # Edit inventory.friend.yml with your target system details
+   vim inventory.friend.yml
    ```
 
-4. Answer the prompts:
+3. **Run the setup:**
+   ```bash
+   ansible-playbook -i inventory.friend.yml site.yml
    ```
-   Install Home Assistant? (yes/no)
-   Install Homebridge? (yes/no)
-   ```
+
+4. **Answer the prompts:**
+   - Install Home Assistant? (yes/no)
+   - Install Homebridge? (yes/no)
 
 ---
 
-## 📦 Output
+## 🎯 Usage Examples
 
-If selected, the following containers will run:
-- `homeassistant`: accessible on host network (usually http://<ip>:8123)
-- `homebridge`: accessible on http://<ip>:8581
+**Full installation:**
+```bash
+ansible-playbook -i inventory.friend.yml site.yml
+```
+
+**Only base system setup:**
+```bash
+ansible-playbook -i inventory.friend.yml site.yml --tags base
+```
+
+**Only Home Assistant:**
+```bash
+ansible-playbook -i inventory.friend.yml site.yml --tags homeassistant
+```
+
+**Cleanup services:**
+```bash
+ansible-playbook -i inventory.friend.yml playbooks/cleanup.yml
+```
+
+---
+
+## 📦 What You Get
+
+After successful deployment:
+- **Home Assistant**: http://your-server-ip:8123 (if selected)
+- **Homebridge**: http://your-server-ip:8581 (if selected)
+- **Secured SSH**: Password authentication disabled, root login disabled
+- **Automatic updates**: Security updates install automatically
+- **Firewall**: UFW configured with only necessary ports open
 
 ---
 
 ## 🛠 Requirements
-- A fresh x86 Linux machine
-- Ansible installed on your control machine (`sudo apt install ansible`)
-- SSH access from Ansible host to the target machine
+
+- **Target system**: Fresh x86_64 Linux machine (Ubuntu/Debian)
+- **Control machine**: Ansible installed (`sudo apt install ansible`)
+- **Network**: SSH access from control machine to target
+- **Permissions**: sudo access on target machine
 
 ---
 
-## 🧹 Optional Improvements
-- Add Cloudflare Tunnel, Watchtower, or Nginx roles
-- Create a reverse proxy for public access (via Docker or Nginx)
-- Add SSL/TLS support for Home Assistant and Homebridge
+## ⚙️ Configuration
+
+Edit `group_vars/all.yml` to customize:
+- Timezone settings
+- Docker versions
+- Security policies
+- Service versions
 
 ---
 
-## 🧠 Tip
-You can re-run the playbook at any time to add/remove services safely!
+## 🔧 Troubleshooting
+
+**Docker installation fails:**
+```bash
+# Check system architecture
+ansible all -i inventory.friend.yml -m setup -a "filter=ansible_architecture"
+```
+
+**Services not accessible:**
+```bash
+# Check firewall status
+ansible all -i inventory.friend.yml -m shell -a "ufw status" --become
+```
+
+**Container issues:**
+```bash
+# Check container status
+ansible all -i inventory.friend.yml -m shell -a "docker ps -a" --become
+```
+
+---
+
+## 🧠 Pro Tips
+
+- **Re-run safely**: The playbook is idempotent - run it multiple times safely
+- **Selective deployment**: Use tags to install only specific components
+- **Easy cleanup**: Use the cleanup playbook to remove services cleanly
+- **Backup configs**: Home Assistant and Homebridge configs are in `/opt/`
+
+---
+
+## 🤝 Contributing
+
+Feel free to submit issues and enhancement requests!

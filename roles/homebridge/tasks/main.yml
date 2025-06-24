@@ -1,9 +1,31 @@
+---
+- name: Pull Homebridge image
+  docker_image:
+    name: "oznu/homebridge:latest"
+    source: pull
+
 - name: Run Homebridge container
   docker_container:
     name: homebridge
     image: "oznu/homebridge:latest"
-    restart_policy: always
+    restart_policy: unless-stopped
     ports:
       - "8581:8581"
     volumes:
       - /opt/homebridge:/homebridge
+    env:
+      TZ: "{{ timezone | default('UTC') }}"
+      PGID: "1000"
+      PUID: "1000"
+
+- name: Wait for Homebridge to start
+  wait_for:
+    host: "{{ ansible_default_ipv4.address }}"
+    port: 8581
+    delay: 5
+    timeout: 30
+  ignore_errors: true
+
+- name: Display Homebridge access info
+  debug:
+    msg: "Homebridge available at: http://{{ ansible_default_ipv4.address }}:8581"

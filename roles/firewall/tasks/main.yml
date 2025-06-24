@@ -1,0 +1,43 @@
+---
+- name: Install UFW firewall
+  apt:
+    name: ufw
+    state: present
+
+- name: Reset UFW to defaults
+  ufw:
+    state: reset
+
+- name: Set UFW default policies
+  ufw:
+    direction: "{{ item.direction }}"
+    policy: "{{ item.policy }}"
+  loop:
+    - { direction: 'incoming', policy: 'deny' }
+    - { direction: 'outgoing', policy: 'allow' }
+
+- name: Allow SSH
+  ufw:
+    rule: allow
+    port: "{{ ssh_port | default(22) }}"
+    proto: tcp
+
+- name: Allow Home Assistant port
+  ufw:
+    rule: allow
+    port: 8123
+    proto: tcp
+    comment: "Home Assistant"
+  when: install_homeassistant | default(false) | bool
+
+- name: Allow Homebridge port
+  ufw:
+    rule: allow
+    port: 8581
+    proto: tcp
+    comment: "Homebridge"
+  when: install_homebridge | default(false) | bool
+
+- name: Enable UFW
+  ufw:
+    state: enabled

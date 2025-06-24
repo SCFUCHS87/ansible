@@ -1,9 +1,63 @@
-- name: Check if Docker is installed
-  command: which docker
+---
+- name: Check if Docker is already installed
+  command: docker --version
   register: docker_check
   ignore_errors: true
+  changed_when: false
 
-- name: Install Docker
-  shell: |
-    curl -fsSL https://get.docker.com | sh
+- name: Install Docker prerequisites
+  apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gnupg
+      - lsb-release
+    state: present
   when: docker_check.rc != 0
+
+- name: Add Docker's official GPG key
+  apt_key:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    state: present
+  when: docker_check.rc != 0
+
+- name: Add Docker repository
+  apt_repository:
+    repo: "deb [arch=amd64] https://download.docker.com/linux/{{ ansible_distribution|lower }} {{ ansible_distribution_release }} stable"
+    state: present
+  when: docker_check.rc != 0
+
+- name: Install Docker Engine
+  apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-compose-plugin
+    state: present
+    update_cache: yes
+  when: docker_check.rc != 0
+
+- name: Add user to docker group
+  user:
+    name: "{{ ansible_user }}"
+    groups: docker
+    append: yes
+  when: docker_check.rc != 0
+
+- name: Start and enable Docker service
+  systemd:
+    name: docker
+    state: started
+    enabled: yes
+
+- name: Verify Docker installation
+  command: docker run --rm hello-world
+  register: docker_test
+  become_user: "{{ ansible_user }}"
+  when: docker_check.rc != 0
+
+- name: Display Docker version
+  debug:
+    msg: "Docker successfully installed: {{ docker_test.stdout_lines[-1] if docker_check.rc != 0 else 'Docker was already installed' }}"

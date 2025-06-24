@@ -1,0 +1,14 @@
+---
+# Common variables for all hosts
+timezone: "America/Chicago"
+docker_compose_version: "2.20.0"
+homeassistant_version: "stable"
+
+# Security settings
+ssh_port: 22
+allow_password_auth: false
+allow_root_login: false
+
+# Docker settings
+docker_users:
+  - "{{ ansible_user }}"

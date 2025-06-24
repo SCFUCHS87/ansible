@@ -1,0 +1,9 @@
+- name: Run Homebridge container
+  docker_container:
+    name: homebridge
+    image: "oznu/homebridge:latest"
+    restart_policy: always
+    ports:
+      - "8581:8581"
+    volumes:
+      - /opt/homebridge:/homebridge

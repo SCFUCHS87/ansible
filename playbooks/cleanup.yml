@@ -1,0 +1,50 @@
+---
+- name: Cleanup Friend Setup Services
+  hosts: all
+  become: yes
+  gather_facts: no
+  
+  vars_prompt:
+    - name: remove_homeassistant
+      prompt: "Remove Home Assistant? (yes/no)"
+      default: "no"
+      private: no
+    
+    - name: remove_homebridge
+      prompt: "Remove Homebridge? (yes/no)"
+      default: "no"
+      private: no
+      
+    - name: remove_data
+      prompt: "Remove configuration data? (yes/no)"
+      default: "no"
+      private: no
+
+  tasks:
+    - name: Stop and remove Home Assistant container
+      docker_container:
+        name: homeassistant
+        state: absent
+      when: remove_homeassistant | bool
+
+    - name: Stop and remove Homebridge container
+      docker_container:
+        name: homebridge
+        state: absent
+      when: remove_homebridge | bool
+
+    - name: Remove Home Assistant data
+      file:
+        path: /opt/homeassistant
+        state: absent
+      when: remove_homeassistant | bool and remove_data | bool
+
+    - name: Remove Homebridge data
+      file:
+        path: /opt/homebridge
+        state: absent
+      when: remove_homebridge | bool and remove_data | bool
+
+    - name: Display cleanup results
+      debug:
+        msg: "Cleanup completed successfully!"

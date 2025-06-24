@@ -1,0 +1,9 @@
+- name: Run Home Assistant container
+  docker_container:
+    name: homeassistant
+    image: "ghcr.io/home-assistant/home-assistant:stable"
+    restart_policy: always
+    network_mode: host
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /opt/homeassistant:/config

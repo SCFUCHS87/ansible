@@ -1,0 +1,72 @@
+---
+- name: Friend Home Automation Setup
+  hosts: all
+  become: yes
+  gather_facts: yes
+  
+  vars_prompt:
+    - name: install_homeassistant
+      prompt: "Install Home Assistant? (yes/no)"
+      default: "yes"
+      private: no
+    
+    - name: install_homebridge
+      prompt: "Install Homebridge? (yes/no)"
+      default: "no"
+      private: no
+
+  pre_tasks:
+    - name: Ensure we're running on x86_64
+      fail:
+        msg: "This playbook is designed for x86_64 systems only"
+      when: ansible_architecture != "x86_64"
+
+  roles:
+    - role: base
+      tags: [base, always]
+    
+    - role: docker
+      tags: [docker, always]
+
+  tasks:
+    - name: Create directories for Home Assistant
+      file:
+        path: /opt/homeassistant
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0755'
+      when: install_homeassistant | bool
+
+    - name: Deploy Home Assistant
+      include_role:
+        name: homeassistant
+      when: install_homeassistant | bool
+      tags: [homeassistant]
+
+    - name: Create directories for Homebridge
+      file:
+        path: /opt/homebridge
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0755'
+      when: install_homebridge | bool
+
+    - name: Deploy Homebridge
+      include_role:
+        name: homebridge
+      when: install_homebridge | bool
+      tags: [homebridge]
+
+  post_tasks:
+    - name: Display service information
+      debug:
+        msg: |
+          Setup complete! Services available:
+          {% if install_homeassistant | bool %}
+          - Home Assistant: http://{{ ansible_default_ipv4.address }}:8123
+          {% endif %}
+          {% if install_homebridge | bool %}
+          - Homebridge: http://{{ ansible_default_ipv4.address }}:8581
+          {% endif %}
