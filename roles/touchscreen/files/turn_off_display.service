@@ -1,6 +1,0 @@
-[Unit]
-Description=Turn off display
-
-[Service]
-Type=oneshot
-ExecStart=/usr/local/bin/turn_off_display.sh

@@ -1,0 +1,9 @@
+- name: Check if Docker is installed
+  command: which docker
+  register: docker_check
+  ignore_errors: true
+
+- name: Install Docker
+  shell: |
+    curl -fsSL https://get.docker.com | sh
+  when: docker_check.rc != 0
