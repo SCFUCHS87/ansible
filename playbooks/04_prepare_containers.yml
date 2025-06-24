@@ -1,0 +1,6 @@
+---
+- name: Prepare system for containers
+  hosts: all
+  become: true
+  roles:
+    - container_prep

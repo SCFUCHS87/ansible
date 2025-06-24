@@ -1,0 +1,6 @@
+---
+- name: Set up DAKboard kiosk environment
+  hosts: all
+  become: true
+  roles:
+    - dakboard

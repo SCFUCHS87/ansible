@@ -1,4 +1,17 @@
 ---
-# Main site playbook - runs all core setup
 - import_playbook: playbooks/01_base_setup.yml
-- import_playbook: playbooks/02_optional_dakboard.yml
+
+- import_playbook: playbooks/02_kiosk_touchscreen.yml
+  when: enable_kiosk | default(false)
+
+- import_playbook: playbooks/03_dakboard.yml
+  when: enable_dakboard | default(false)
+
+- import_playbook: playbooks/04_prepare_containers.yml
+  when: enable_containers | default(false)
+
+- import_playbook: playbooks/05_containers_homeassistant.yml
+  when: enable_homeassistant | default(false)
+
+- import_playbook: playbooks/06_containers_cloudflare.yml
+  when: enable_cloudflare | default(false)

@@ -8,3 +8,10 @@ dakboard_url: "https://dakboard.com/app"
 # SSH configuration
 ansible_ssh_pipelining: true
 ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
+
+# Feature flags for modular playbooks
+enable_kiosk: true
+enable_dakboard: true
+enable_containers: true
+enable_homeassistant: false
+enable_cloudflare: false

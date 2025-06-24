@@ -1,0 +1,6 @@
+---
+- name: Configure touchscreen display and wake/sleep timers
+  hosts: all
+  become: true
+  roles:
+    - touchscreen
