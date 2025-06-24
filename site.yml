@@ -15,3 +15,8 @@
 
 - import_playbook: playbooks/06_containers_cloudflare.yml
   when: enable_cloudflare | default(false)
+
+- import_playbook: playbooks/07_k3s_control_plane.yml
+  when: enable_k3s | default(false)
+- import_playbook: playbooks/08_k3s_worker_nodes.yml
+  when: enable_k3s | default(false)
