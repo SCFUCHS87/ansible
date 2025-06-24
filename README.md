@@ -155,3 +155,17 @@ ansible all -i inventory.friend.yml -m shell -a "docker ps -a" --become
 ## 🤝 Contributing
 
 Feel free to submit issues and enhancement requests!
+
+## 💬 Feedback & Support
+
+### 🐛 Found an Issue?
+[Report a bug or issue](https://github.com/SCFUCHS87/ansible/issues/new?labels=friend-setup&template=support-request.md)
+
+### 💡 Have Feedback?
+[Share your experience](https://github.com/SCFUCHS87/ansible/issues/new?labels=friend-setup&template=friend-feedback.md)
+
+### 💬 General Questions?
+[Start a discussion](https://github.com/SCFUCHS87/ansible/discussions) or email directly!
+
+### 📧 Direct Contact
+Prefer email? Reach out directly for any questions or suggestions.
