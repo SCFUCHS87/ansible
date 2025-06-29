@@ -1,0 +1,2 @@
+# Trigger display on when touchscreen is touched
+ACTION=="add|change", SUBSYSTEM=="input", KERNEL=="event*", ATTRS{name}=="*touchscreen*", RUN+="/usr/bin/systemctl start turn_on_display_touch.service"

@@ -1,3 +1,23 @@
 ---
-# Main site playbook - customize for your needs
-# - import_playbook: playbooks/your_project.yml
+# Modular Ansible site playbook
+# Use feature flags in group_vars/all.yml to control what gets deployed
+
+- import_playbook: playbooks/01_base_setup.yml
+
+- import_playbook: playbooks/02_kiosk_touchscreen.yml
+  when: enable_kiosk | default(false)
+
+- import_playbook: playbooks/03_dakboard.yml
+  when: enable_dakboard | default(false)
+
+- import_playbook: playbooks/04_prepare_containers.yml
+  when: enable_containers | default(false)
+
+- import_playbook: playbooks/05_containers_homeassistant.yml
+  when: enable_homeassistant | default(false)
+
+- import_playbook: playbooks/07_k3s_control_plane.yml
+  when: enable_k3s | default(false)
+
+- import_playbook: playbooks/08_k3s_worker_nodes.yml
+  when: enable_k3s | default(false) and groups['workers'] is defined and groups['workers'] | length > 0

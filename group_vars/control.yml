@@ -1,0 +1,2 @@
+# Control plane specific variables
+# The control plane IP is automatically determined from inventory

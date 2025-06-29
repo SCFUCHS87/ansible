@@ -1,0 +1,22 @@
+#!/bin/bash
+
+# Disable screen blanking and power management
+/usr/local/bin/disable-blanking.sh
+
+# Start Chromium in kiosk mode
+exec chromium-browser \
+  --kiosk \
+  --no-sandbox \
+  --disable-infobars \
+  --disable-features=TranslateUI \
+  --disable-ipc-flooding-protection \
+  --disable-background-timer-throttling \
+  --disable-backgrounding-occluded-windows \
+  --disable-renderer-backgrounding \
+  --disable-features=VizDisplayCompositor \
+  --noerrdialogs \
+  --disable-component-update \
+  --autoplay-policy=no-user-gesture-required \
+  --force-device-scale-factor=1 \
+  --start-fullscreen \
+  "{{ dakboard_url }}"

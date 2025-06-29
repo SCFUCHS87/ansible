@@ -1,0 +1,10 @@
+---
+# roles/dakboard/handlers/main.yml
+- name: reload systemd
+  systemd:
+    daemon_reload: yes
+
+- name: restart getty
+  systemd:
+    name: getty@tty1.service
+    state: restarted

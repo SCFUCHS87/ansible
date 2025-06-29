@@ -1,0 +1,6 @@
+---
+- name: Install k3s control plane
+  hosts: control
+  become: true
+  roles:
+    - kubernetes_control_plane

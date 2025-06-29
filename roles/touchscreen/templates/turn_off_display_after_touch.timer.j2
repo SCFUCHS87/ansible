@@ -1,0 +1,10 @@
+[Unit]
+Description=Turn off HDMI display 10 min after touch wake
+
+[Timer]
+OnActiveSec=10min
+AccuracySec=1s
+Unit=turn_off_display_after_touch.service
+
+[Install]
+WantedBy=timers.target

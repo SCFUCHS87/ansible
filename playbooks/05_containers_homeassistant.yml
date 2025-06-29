@@ -1,0 +1,6 @@
+---
+- name: Deploy Home Assistant in Kubernetes
+  hosts: all
+  become: true
+  roles:
+    - k8s_homeassistant

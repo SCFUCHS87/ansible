@@ -1,0 +1,63 @@
+---
+- name: Install X11 utilities for display control
+  apt:
+    name:
+      - x11-xserver-utils
+    state: present
+    update_cache: yes
+
+- name: Ensure display control scripts are present
+  copy:
+    src: "{{ item }}"
+    dest: "/usr/local/bin/{{ item }}"
+    mode: '0755'
+  loop:
+    - turn_on_display.sh
+    - turn_off_display.sh
+
+- name: Install systemd service and timer units
+  template:
+    src: "{{ item.src }}"
+    dest: "/etc/systemd/system/{{ item.dest }}"
+    mode: '0644'
+  loop:
+    - { src: "turn_on_display_am.service.j2", dest: "turn_on_display_am.service" }
+    - { src: "turn_on_display_am.timer.j2", dest: "turn_on_display_am.timer" }
+    - { src: "turn_off_display_am.service.j2", dest: "turn_off_display_am.service" }
+    - { src: "turn_off_display_am.timer.j2", dest: "turn_off_display_am.timer" }
+    - { src: "turn_on_display_pm.service.j2", dest: "turn_on_display_pm.service" }
+    - { src: "turn_on_display_pm.timer.j2", dest: "turn_on_display_pm.timer" }
+    - { src: "turn_off_display_pm.service.j2", dest: "turn_off_display_pm.service" }
+    - { src: "turn_off_display_pm.timer.j2", dest: "turn_off_display_pm.timer" }
+
+- name: Enable and start display timers
+  systemd:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  loop:
+    - turn_on_display_am.timer
+    - turn_off_display_am.timer
+    - turn_on_display_pm.timer
+    - turn_off_display_pm.timer
+
+- name: Install udev rule for touchscreen wake
+  copy:
+    src: 99-touchscreen.rules
+    dest: /etc/udev/rules.d/99-touchscreen.rules
+    mode: '0644'
+
+- name: Install systemd units for touchscreen wake and auto-off
+  template:
+    src: "{{ item.src }}"
+    dest: "/etc/systemd/system/{{ item.dest }}"
+    mode: '0644'
+  loop:
+    - { src: "turn_on_display_touch.service.j2", dest: "turn_on_display_touch.service" }
+    - { src: "turn_off_display_after_touch.service.j2", dest: "turn_off_display_after_touch.service" }
+    - { src: "turn_off_display_after_touch.timer.j2", dest: "turn_off_display_after_touch.timer" }
+
+- name: Enable auto-off timer (only activates when touch is detected)
+  systemd:
+    name: turn_off_display_after_touch.timer
+    enabled: true

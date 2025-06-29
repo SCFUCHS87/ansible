@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: homebridge
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: homebridge
+  template:
+    metadata:
+      labels:
+        app: homebridge
+    spec:
+      containers:
+        - name: homebridge
+          image: oznu/homebridge:latest
+          ports:
+            - containerPort: 8581
+          volumeMounts:
+            - mountPath: /homebridge
+              name: config
+      volumes:
+        - name: config
+          hostPath:
+            path: /srv/homebridge
+            type: DirectoryOrCreate
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: homebridge
+spec:
+  selector:
+    app: homebridge
+  ports:
+    - protocol: TCP
+      port: 8581
+      targetPort: 8581
