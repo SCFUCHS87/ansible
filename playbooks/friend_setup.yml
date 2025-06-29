@@ -1,5 +1,5 @@
 ---
-- name: Friend Home Automation Setup
+- name: Friend Home Automation + Media Setup
   hosts: all
   become: yes
   gather_facts: yes
@@ -14,15 +14,15 @@
       prompt: "Install Homebridge? (yes/no)"
       default: "no"
       private: no
-    
-    - name: install_cockpit
-      prompt: "Install Cockpit web console? (yes/no)"
-      default: "yes"
-      private: no
-    
+
     - name: install_plex
       prompt: "Install Plex Media Server? (yes/no)"
-      default: "no"
+      default: "yes"
+      private: no
+
+    - name: install_cockpit
+      prompt: "Install Cockpit (web management)? (yes/no)"
+      default: "yes"
       private: no
 
     - name: ha_config_dir
@@ -43,10 +43,10 @@
       default: "/opt/plex/config"
       when: install_plex | default(false) | bool
 
-    - name: plex_claim_token
-      prompt: "Plex claim token (optional - get from https://plex.tv/claim)"
+    - name: plex_media_dir
+      prompt: "Plex media directory (default: /opt/plex/media)"
       private: no
-      default: ""
+      default: "/opt/plex/media"
       when: install_plex | default(false) | bool
 
     - name: force_recreate
@@ -86,64 +86,19 @@
           {% endif %}
       when: existing_containers.results | selectattr('exists') | list | length > 0
 
-    - name: Check port conflicts for Home Assistant
+    - name: Check port conflicts
       wait_for:
         host: "{{ ansible_default_ipv4.address }}"
-        port: 8123
+        port: "{{ item.port }}"
         timeout: 1
-      register: ha_port_check
+      register: port_checks
       ignore_errors: true
-      when: install_homeassistant | bool
-
-    - name: Check port conflicts for Homebridge
-      wait_for:
-        host: "{{ ansible_default_ipv4.address }}"
-        port: "{{ homebridge_port | default('8581') }}"
-        timeout: 1
-      register: hb_port_check
-      ignore_errors: true
-      when: install_homebridge | bool
-
-    - name: Check port conflicts for Cockpit
-      wait_for:
-        host: "{{ ansible_default_ipv4.address }}"
-        port: 9090
-        timeout: 1
-      register: cockpit_port_check
-      ignore_errors: true
-      when: install_cockpit | bool
-
-    - name: Check port conflicts for Plex
-      wait_for:
-        host: "{{ ansible_default_ipv4.address }}"
-        port: 32400
-        timeout: 1
-      register: plex_port_check
-      ignore_errors: true
-      when: install_plex | bool
-
-    - name: Warning about port conflicts
-      debug:
-        msg: |
-          WARNING: Port conflicts detected!
-          {% if ha_port_check is defined and ha_port_check.failed == false %}
-          - Port 8123 is already in use (Home Assistant)
-          {% endif %}
-          {% if hb_port_check is defined and hb_port_check.failed == false %}
-          - Port {{ homebridge_port | default('8581') }} is already in use (Homebridge)
-          {% endif %}
-          {% if cockpit_port_check is defined and cockpit_port_check.failed == false %}
-          - Port 9090 is already in use (Cockpit)
-          {% endif %}
-          {% if plex_port_check is defined and plex_port_check.failed == false %}
-          - Port 32400 is already in use (Plex)
-          {% endif %}
-          Continuing with deployment - existing containers will be managed.
-      when: >
-        (ha_port_check is defined and ha_port_check.failed == false) or
-        (hb_port_check is defined and hb_port_check.failed == false) or
-        (cockpit_port_check is defined and cockpit_port_check.failed == false) or
-        (plex_port_check is defined and plex_port_check.failed == false)
+      loop:
+        - { service: "Home Assistant", port: 8123, condition: "{{ install_homeassistant | bool }}" }
+        - { service: "Homebridge", port: "{{ homebridge_port | default('8581') }}", condition: "{{ install_homebridge | bool }}" }
+        - { service: "Plex", port: 32400, condition: "{{ install_plex | bool }}" }
+        - { service: "Cockpit", port: 9090, condition: "{{ install_cockpit | bool }}" }
+      when: item.condition
 
   roles:
     - role: base
@@ -151,134 +106,238 @@
     
     - role: docker
       tags: [docker, always]
-    
-    - role: cockpit
+
+  tasks:
+    # Cockpit Installation
+    - name: Install Cockpit
+      block:
+        - name: Install Cockpit packages
+          apt:
+            name:
+              - cockpit
+              - cockpit-docker
+              - cockpit-podman
+            state: present
+            update_cache: yes
+
+        - name: Enable and start Cockpit
+          systemd:
+            name: cockpit.socket
+            state: started
+            enabled: yes
+
+        - name: Configure firewall for Cockpit
+          ufw:
+            rule: allow
+            port: 9090
+            proto: tcp
+            comment: "Cockpit Web Console"
+
       when: install_cockpit | bool
       tags: [cockpit]
 
-  tasks:
-    - name: Stop existing Home Assistant container if force recreate
+    # Stop existing containers if force recreate
+    - name: Stop existing containers if force recreate
       docker_container:
-        name: homeassistant
-        state: stopped
-      when: 
-        - install_homeassistant | bool
-        - force_recreate | bool
-      ignore_errors: true
-
-    - name: Stop existing Homebridge container if force recreate
-      docker_container:
-        name: homebridge
-        state: stopped
-      when: 
-        - install_homebridge | bool
-        - force_recreate | bool
-      ignore_errors: true
-
-    - name: Stop existing Plex container if force recreate
-      docker_container:
-        name: plex
-        state: stopped
-      when: 
-        - install_plex | bool
-        - force_recreate | bool
-      ignore_errors: true
-
-    - name: Create directories for Home Assistant
-      file:
-        path: "{{ ha_config_dir | default('/opt/homeassistant') }}"
-        state: directory
-        owner: "{{ ansible_user }}"
-        group: "{{ ansible_user }}"
-        mode: '0755'
-      when: install_homeassistant | bool
-
-    - name: Deploy Home Assistant
-      include_role:
-        name: homeassistant
-      vars:
-        ha_config_dir: "{{ ha_config_dir | default('/opt/homeassistant') }}"
-        force_recreate: "{{ force_recreate | default(false) }}"
-      when: install_homeassistant | bool
-      tags: [homeassistant]
-
-    - name: Create directories for Homebridge
-      file:
-        path: "{{ hb_config_dir | default('/opt/homebridge') }}"
-        state: directory
-        owner: "{{ ansible_user }}"
-        group: "{{ ansible_user }}"
-        mode: '0755'
-      when: install_homebridge | bool
-
-    - name: Deploy Homebridge
-      include_role:
-        name: homebridge
-      vars:
-        hb_config_dir: "{{ hb_config_dir | default('/opt/homebridge') }}"
-        homebridge_port: "{{ homebridge_port | default('8581') }}"
-        force_recreate: "{{ force_recreate | default(false) }}"
-      when: install_homebridge | bool
-      tags: [homebridge]
-
-    - name: Create directories for Plex
-      file:
-        path: "{{ item }}"
-        state: directory
-        owner: "{{ ansible_user }}"
-        group: "{{ ansible_user }}"
-        mode: '0755'
-      loop:
-        - "{{ plex_config_dir | default('/opt/plex/config') }}"
-        - "{{ plex_movies_dir | default('/opt/plex/movies') }}"
-        - "{{ plex_tv_dir | default('/opt/plex/tv') }}"
-        - "{{ plex_music_dir | default('/opt/plex/music') }}"
-      when: install_plex | bool
-
-    - name: Deploy Plex Media Server
-      include_role:
-        name: plex
-      vars:
-        plex_config_dir: "{{ plex_config_dir | default('/opt/plex/config') }}"
-        plex_claim_token: "{{ plex_claim_token | default('') }}"
-        force_recreate: "{{ force_recreate | default(false) }}"
-      when: install_plex | bool
-      tags: [plex]
-
-  post_tasks:
-    - name: Get final container status
-      docker_container_info:
         name: "{{ item }}"
-      register: final_containers
+        state: stopped
+      when: force_recreate | bool
+      ignore_errors: true
       loop:
         - homeassistant
         - homebridge
         - plex
+
+    # Create directories
+    - name: Create service directories
+      file:
+        path: "{{ item.path }}"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0755'
+      loop:
+        - { path: "{{ ha_config_dir | default('/opt/homeassistant') }}", condition: "{{ install_homeassistant | bool }}" }
+        - { path: "/opt/homebridge", condition: "{{ install_homebridge | bool }}" }
+        - { path: "{{ plex_config_dir | default('/opt/plex/config') }}", condition: "{{ install_plex | bool }}" }
+        - { path: "{{ plex_media_dir | default('/opt/plex/media') }}", condition: "{{ install_plex | bool }}" }
+      when: item.condition
+
+    # Home Assistant
+    - name: Deploy Home Assistant
+      block:
+        - name: Pull Home Assistant image
+          docker_image:
+            name: "ghcr.io/home-assistant/home-assistant:stable"
+            source: pull
+
+        - name: Run Home Assistant container
+          docker_container:
+            name: homeassistant
+            image: "ghcr.io/home-assistant/home-assistant:stable"
+            restart_policy: unless-stopped
+            recreate: "{{ force_recreate | default(false) }}"
+            network_mode: host
+            volumes:
+              - /etc/localtime:/etc/localtime:ro
+              - "{{ ha_config_dir | default('/opt/homeassistant') }}:/config"
+            env:
+              TZ: "{{ timezone | default('America/Chicago') }}"
+
+        - name: Configure firewall for Home Assistant
+          ufw:
+            rule: allow
+            port: 8123
+            proto: tcp
+            comment: "Home Assistant"
+
+      when: install_homeassistant | bool
+      tags: [homeassistant]
+
+    # Homebridge
+    - name: Deploy Homebridge
+      block:
+        - name: Pull Homebridge image
+          docker_image:
+            name: "oznu/homebridge:latest"
+            source: pull
+
+        - name: Run Homebridge container
+          docker_container:
+            name: homebridge
+            image: "oznu/homebridge:latest"
+            restart_policy: unless-stopped
+            recreate: "{{ force_recreate | default(false) }}"
+            ports:
+              - "{{ homebridge_port | default('8581') }}:8581"
+            volumes:
+              - "/opt/homebridge:/homebridge"
+            env:
+              TZ: "{{ timezone | default('America/Chicago') }}"
+              PGID: "1000"
+              PUID: "1000"
+              HOMEBRIDGE_CONFIG_UI: "1"
+              HOMEBRIDGE_CONFIG_UI_PORT: "8581"
+
+        - name: Configure firewall for Homebridge
+          ufw:
+            rule: allow
+            port: "{{ homebridge_port | default('8581') }}"
+            proto: tcp
+            comment: "Homebridge"
+
+      when: install_homebridge | bool
+      tags: [homebridge]
+
+    # Plex Media Server
+    - name: Deploy Plex
+      block:
+        - name: Pull Plex image
+          docker_image:
+            name: "plexinc/pms-docker:latest"
+            source: pull
+
+        - name: Run Plex container
+          docker_container:
+            name: plex
+            image: "plexinc/pms-docker:latest"
+            restart_policy: unless-stopped
+            recreate: "{{ force_recreate | default(false) }}"
+            network_mode: host
+            volumes:
+              - "{{ plex_config_dir | default('/opt/plex/config') }}:/config"
+              - "{{ plex_media_dir | default('/opt/plex/media') }}:/data"
+              - /tmp:/transcode
+            env:
+              TZ: "{{ timezone | default('America/Chicago') }}"
+              PLEX_CLAIM: ""
+              ADVERTISE_IP: "http://{{ ansible_default_ipv4.address }}:32400/"
+
+        - name: Configure firewall for Plex
+          ufw:
+            rule: allow
+            port: 32400
+            proto: tcp
+            comment: "Plex Media Server"
+
+        - name: Configure additional Plex ports
+          ufw:
+            rule: allow
+            port: "{{ item }}"
+            proto: udp
+            comment: "Plex Discovery"
+          loop:
+            - 1900
+            - 5353
+            - 32410
+            - 32412
+            - 32413
+            - 32414
+
+      when: install_plex | bool
+      tags: [plex]
+
+  post_tasks:
+    - name: Wait for services to start
+      wait_for:
+        host: "{{ ansible_default_ipv4.address }}"
+        port: "{{ item.port }}"
+        delay: 5
+        timeout: 60
       ignore_errors: true
+      loop:
+        - { service: "Home Assistant", port: 8123, condition: "{{ install_homeassistant | bool }}" }
+        - { service: "Homebridge", port: "{{ homebridge_port | default('8581') }}", condition: "{{ install_homebridge | bool }}" }
+        - { service: "Plex", port: 32400, condition: "{{ install_plex | bool }}" }
+        - { service: "Cockpit", port: 9090, condition: "{{ install_cockpit | bool }}" }
+      when: item.condition
 
     - name: Display service information
       debug:
         msg: |
           🎉 Setup complete! Services available:
-          {% for container in final_containers.results %}
-          {% if container.exists and container.container.State.Status == 'running' %}
-          {% if container.container.Name[1:] == 'homeassistant' %}
-          ✅ Home Assistant: http://{{ ansible_default_ipv4.address }}:8123
-             Config: {{ ha_config_dir | default('/opt/homeassistant') }}
-          {% elif container.container.Name[1:] == 'homebridge' %}
-          ✅ Homebridge: http://{{ ansible_default_ipv4.address }}:{{ homebridge_port | default('8581') }}
-             Config: {{ hb_config_dir | default('/opt/homebridge') }}
-          {% elif container.container.Name[1:] == 'plex' %}
-          ✅ Plex Media Server: http://{{ ansible_default_ipv4.address }}:32400/web
-             Config: {{ plex_config_dir | default('/opt/plex/config') }}
-          {% endif %}
-          {% endif %}
-          {% endfor %}
+          
           {% if install_cockpit | bool %}
-          ✅ Cockpit Web Console: https://{{ ansible_default_ipv4.address }}:9090
+          🖥️  Cockpit (Server Management): https://{{ ansible_default_ipv4.address }}:9090
+              Login with your system user credentials
+          {% endif %}
+          
+          {% if install_homeassistant | bool %}
+          🏠 Home Assistant: http://{{ ansible_default_ipv4.address }}:8123
+              Config: {{ ha_config_dir | default('/opt/homeassistant') }}
+          {% endif %}
+          
+          {% if install_homebridge | bool %}
+          🌉 Homebridge: http://{{ ansible_default_ipv4.address }}:{{ homebridge_port | default('8581') }}
+              Config: /opt/homebridge
+              Default login: admin/admin (change immediately!)
+          {% endif %}
+          
+          {% if install_plex | bool %}
+          🎬 Plex Media Server: http://{{ ansible_default_ipv4.address }}:32400/web
+              Config: {{ plex_config_dir | default('/opt/plex/config') }}
+              Media: {{ plex_media_dir | default('/opt/plex/media') }}
+              ⚠️  Complete setup at: http://{{ ansible_default_ipv4.address }}:32400/web
           {% endif %}
           
           🔧 Management commands:
           - View logs: docker logs <container_name>
           - Restart: docker restart <container_name>
           - Stop: docker stop <container_name>
+          - Cockpit: systemctl status cockpit.socket
+
+    - name: Display Plex setup instructions
+      debug:
+        msg: |
+          📺 Plex First-Time Setup:
+          1. Visit: http://{{ ansible_default_ipv4.address }}:32400/web
+          2. Sign in with your Plex account (or create one)
+          3. Name your server
+          4. Add media libraries pointing to: {{ plex_media_dir | default('/opt/plex/media') }}
+          5. Upload your media files to the media directory
+          
+          💡 Tips:
+          - Organize media in folders like: Movies/, TV Shows/, Music/
+          - Plex will automatically scan and organize your content
+          - Use Cockpit to easily upload files via the web interface
+      when: install_plex | bool

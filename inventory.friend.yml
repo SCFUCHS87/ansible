@@ -1,9 +1,22 @@
 all:
   hosts:
-    ha-x86:
-      ansible_host: 192.168.1.123
-      ansible_user: youruser
-
----
-
-Would you like me to push this script for you, or would you prefer to copy it in manually and commit?
+    media-server:
+      ansible_host: 192.168.1.123  # Replace with your server's IP
+      ansible_user: youruser        # Replace with your username
+      # ansible_ssh_private_key_file: ~/.ssh/id_rsa  # Uncomment if using SSH keys
+  vars:
+    # Global settings for all services
+    timezone: "America/Chicago"     # Change to your timezone
+    
+    # Service directories (customize as needed)
+    homeassistant_config: "/opt/homeassistant"
+    homebridge_config: "/opt/homebridge"
+    plex_config: "/opt/plex/config"
+    plex_media: "/opt/plex/media"   # This is where you'll put your movies/TV shows
+    
+    # Ports (change if needed to avoid conflicts)
+    homebridge_port: 8581
+    
+    # Docker settings
+    docker_users:
+      - "{{ ansible_user }}"
