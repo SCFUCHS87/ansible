@@ -15,8 +15,10 @@ ansible-playbook -i inventory/hosts.yml playbooks/02_kiosk_touchscreen.yml
 ansible-playbook -i inventory/hosts.yml playbooks/03_dakboard.yml
 ansible-playbook -i inventory/hosts.yml playbooks/04_prepare_containers.yml
 ansible-playbook -i inventory/hosts.yml playbooks/05_containers_homeassistant.yml
+ansible-playbook -i inventory/hosts.yml playbooks/06_traefik_ingress.yml
 ansible-playbook -i inventory/hosts.yml playbooks/07_k3s_control_plane.yml
 ansible-playbook -i inventory/hosts.yml playbooks/08_k3s_worker_nodes.yml
+ansible-playbook -i inventory/hosts.yml playbooks/09_homebridge.yml
 
 # Using tags for selective deployment
 ansible-playbook -i inventory/hosts.yml site.yml --tags base
@@ -71,6 +73,8 @@ Control deployment scope via `group_vars/all.yml`:
 - `enable_containers`: Docker and container preparation
 - `enable_homeassistant`: Home Assistant K8s deployment
 - `enable_k3s`: Kubernetes cluster setup
+- `enable_traefik`: Traefik ingress controller for K8s
+- `enable_homebridge`: Homebridge K8s deployment
 
 ### Key Files
 - `site.yml`: Main orchestration playbook that imports all component playbooks
