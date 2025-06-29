@@ -13,5 +13,7 @@ ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
 enable_kiosk: true
 enable_dakboard: true
 enable_containers: true
-enable_homeassistant: false
-enable_k3s: false
+enable_homeassistant: true
+enable_k3s: true
+enable_traefik: false
+enable_homebridge: false

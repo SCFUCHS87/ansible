@@ -1,0 +1,6 @@
+---
+- name: Deploy Homebridge to Kubernetes
+  hosts: control
+  become: true
+  roles:
+    - k8s_homebridge

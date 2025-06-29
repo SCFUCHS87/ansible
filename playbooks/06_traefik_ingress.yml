@@ -1,0 +1,6 @@
+---
+- name: Deploy Traefik Ingress Controller
+  hosts: control
+  become: true
+  roles:
+    - k8s_traefik_ingress_controller
