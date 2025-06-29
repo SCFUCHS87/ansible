@@ -1,5 +1,8 @@
 ## Friend Setup (x86 with Docker)
 
+![GitHub release (latest by date)](https://img.shields.io/github/v/release/SCFUCHS87/ansible?label=latest)
+
+
 Looking to install Home Assistant or Homebridge on an x86 system?
 
 👉 See [readme.friendsetup.md](readme.friendsetup.md)
