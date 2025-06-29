@@ -14,6 +14,16 @@
       prompt: "Install Homebridge? (yes/no)"
       default: "no"
       private: no
+    
+    - name: install_cockpit
+      prompt: "Install Cockpit web console? (yes/no)"
+      default: "yes"
+      private: no
+    
+    - name: install_plex
+      prompt: "Install Plex Media Server? (yes/no)"
+      default: "no"
+      private: no
 
     - name: ha_config_dir
       prompt: "Home Assistant config volume path (default: /opt/homeassistant)"
@@ -26,6 +36,18 @@
       private: no
       default: "8581"
       when: install_homebridge | default(false) | bool
+
+    - name: plex_config_dir
+      prompt: "Plex config directory (default: /opt/plex/config)"
+      private: no
+      default: "/opt/plex/config"
+      when: install_plex | default(false) | bool
+
+    - name: plex_claim_token
+      prompt: "Plex claim token (optional - get from https://plex.tv/claim)"
+      private: no
+      default: ""
+      when: install_plex | default(false) | bool
 
     - name: force_recreate
       prompt: "Force recreate containers if they exist? (yes/no)"
@@ -45,6 +67,7 @@
       loop:
         - homeassistant
         - homebridge
+        - plex
       ignore_errors: true
 
     - name: Display existing container warning
@@ -81,6 +104,24 @@
       ignore_errors: true
       when: install_homebridge | bool
 
+    - name: Check port conflicts for Cockpit
+      wait_for:
+        host: "{{ ansible_default_ipv4.address }}"
+        port: 9090
+        timeout: 1
+      register: cockpit_port_check
+      ignore_errors: true
+      when: install_cockpit | bool
+
+    - name: Check port conflicts for Plex
+      wait_for:
+        host: "{{ ansible_default_ipv4.address }}"
+        port: 32400
+        timeout: 1
+      register: plex_port_check
+      ignore_errors: true
+      when: install_plex | bool
+
     - name: Warning about port conflicts
       debug:
         msg: |
@@ -91,10 +132,18 @@
           {% if hb_port_check is defined and hb_port_check.failed == false %}
           - Port {{ homebridge_port | default('8581') }} is already in use (Homebridge)
           {% endif %}
+          {% if cockpit_port_check is defined and cockpit_port_check.failed == false %}
+          - Port 9090 is already in use (Cockpit)
+          {% endif %}
+          {% if plex_port_check is defined and plex_port_check.failed == false %}
+          - Port 32400 is already in use (Plex)
+          {% endif %}
           Continuing with deployment - existing containers will be managed.
       when: >
         (ha_port_check is defined and ha_port_check.failed == false) or
-        (hb_port_check is defined and hb_port_check.failed == false)
+        (hb_port_check is defined and hb_port_check.failed == false) or
+        (cockpit_port_check is defined and cockpit_port_check.failed == false) or
+        (plex_port_check is defined and plex_port_check.failed == false)
 
   roles:
     - role: base
@@ -102,6 +151,10 @@
     
     - role: docker
       tags: [docker, always]
+    
+    - role: cockpit
+      when: install_cockpit | bool
+      tags: [cockpit]
 
   tasks:
     - name: Stop existing Home Assistant container if force recreate
@@ -119,6 +172,15 @@
         state: stopped
       when: 
         - install_homebridge | bool
+        - force_recreate | bool
+      ignore_errors: true
+
+    - name: Stop existing Plex container if force recreate
+      docker_container:
+        name: plex
+        state: stopped
+      when: 
+        - install_plex | bool
         - force_recreate | bool
       ignore_errors: true
 
@@ -159,6 +221,30 @@
       when: install_homebridge | bool
       tags: [homebridge]
 
+    - name: Create directories for Plex
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0755'
+      loop:
+        - "{{ plex_config_dir | default('/opt/plex/config') }}"
+        - "{{ plex_movies_dir | default('/opt/plex/movies') }}"
+        - "{{ plex_tv_dir | default('/opt/plex/tv') }}"
+        - "{{ plex_music_dir | default('/opt/plex/music') }}"
+      when: install_plex | bool
+
+    - name: Deploy Plex Media Server
+      include_role:
+        name: plex
+      vars:
+        plex_config_dir: "{{ plex_config_dir | default('/opt/plex/config') }}"
+        plex_claim_token: "{{ plex_claim_token | default('') }}"
+        force_recreate: "{{ force_recreate | default(false) }}"
+      when: install_plex | bool
+      tags: [plex]
+
   post_tasks:
     - name: Get final container status
       docker_container_info:
@@ -167,6 +253,7 @@
       loop:
         - homeassistant
         - homebridge
+        - plex
       ignore_errors: true
 
     - name: Display service information
@@ -181,9 +268,15 @@
           {% elif container.container.Name[1:] == 'homebridge' %}
           ✅ Homebridge: http://{{ ansible_default_ipv4.address }}:{{ homebridge_port | default('8581') }}
              Config: {{ hb_config_dir | default('/opt/homebridge') }}
+          {% elif container.container.Name[1:] == 'plex' %}
+          ✅ Plex Media Server: http://{{ ansible_default_ipv4.address }}:32400/web
+             Config: {{ plex_config_dir | default('/opt/plex/config') }}
           {% endif %}
           {% endif %}
           {% endfor %}
+          {% if install_cockpit | bool %}
+          ✅ Cockpit Web Console: https://{{ ansible_default_ipv4.address }}:9090
+          {% endif %}
           
           🔧 Management commands:
           - View logs: docker logs <container_name>

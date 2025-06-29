@@ -1,0 +1,97 @@
+---
+# roles/plex/tasks/main.yml
+- name: Pull Plex Media Server image
+  docker_image:
+    name: "plexinc/pms-docker:{{ plex_version | default('latest') }}"
+    source: pull
+
+- name: Create Plex config directory
+  file:
+    path: "{{ plex_config_dir | default('/opt/plex/config') }}"
+    state: directory
+    owner: "{{ ansible_user | default('root') }}"
+    group: "{{ ansible_user | default('root') }}"
+    mode: '0755'
+
+- name: Create Plex media directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ ansible_user | default('root') }}"
+    group: "{{ ansible_user | default('root') }}"
+    mode: '0755'
+  loop:
+    - "{{ plex_movies_dir | default('/opt/plex/movies') }}"
+    - "{{ plex_tv_dir | default('/opt/plex/tv') }}"
+    - "{{ plex_music_dir | default('/opt/plex/music') }}"
+
+- name: Check if Plex container exists
+  docker_container_info:
+    name: plex
+  register: plex_container_info
+
+- name: Remove existing Plex container if force recreate
+  docker_container:
+    name: plex
+    state: absent
+  when: 
+    - plex_container_info.exists
+    - force_recreate | default(false) | bool
+
+- name: Run Plex Media Server container
+  docker_container:
+    name: plex
+    image: "plexinc/pms-docker:{{ plex_version | default('latest') }}"
+    restart_policy: unless-stopped
+    recreate: "{{ force_recreate | default(false) }}"
+    network_mode: host
+    volumes:
+      - "{{ plex_config_dir | default('/opt/plex/config') }}:/config"
+      - "{{ plex_movies_dir | default('/opt/plex/movies') }}:/data/movies"
+      - "{{ plex_tv_dir | default('/opt/plex/tv') }}:/data/tv"
+      - "{{ plex_music_dir | default('/opt/plex/music') }}:/data/music"
+      - "/tmp:/tmp"
+    env:
+      TZ: "{{ timezone | default('UTC') }}"
+      PLEX_CLAIM: "{{ plex_claim_token | default('') }}"
+      PLEX_UID: "{{ ansible_real_user_id | default('1000') }}"
+      PLEX_GID: "{{ ansible_real_group_id | default('1000') }}"
+      ADVERTISE_IP: "http://{{ ansible_default_ipv4.address }}:32400/"
+
+- name: Wait for Plex to start
+  wait_for:
+    host: "{{ ansible_default_ipv4.address }}"
+    port: 32400
+    delay: 15
+    timeout: 120
+  register: plex_startup
+
+- name: Display Plex startup result
+  debug:
+    msg: |
+      {% if plex_startup.failed %}
+      ⚠️  Plex may be starting up - check logs with: docker logs plex
+      {% else %}
+      ✅ Plex Media Server is running at: http://{{ ansible_default_ipv4.address }}:32400/web
+      {% endif %}
+
+- name: Show Plex setup info
+  debug:
+    msg: |
+      📋 Plex Media Server Setup:
+      1. Visit: http://{{ ansible_default_ipv4.address }}:32400/web
+      2. Sign in with your Plex account
+      3. Complete server setup wizard
+      4. Add media libraries:
+         - Movies: /data/movies
+         - TV Shows: /data/tv  
+         - Music: /data/music
+      
+      📁 Configuration: {{ plex_config_dir | default('/opt/plex/config') }}
+      📁 Media directories:
+         - Movies: {{ plex_movies_dir | default('/opt/plex/movies') }}
+         - TV: {{ plex_tv_dir | default('/opt/plex/tv') }}
+         - Music: {{ plex_music_dir | default('/opt/plex/music') }}
+      
+      🔑 Claim Token: {{ 'Set' if plex_claim_token is defined else 'Not provided - manual setup required' }}
+  when: not plex_container_info.exists or (force_recreate | default(false) | bool)

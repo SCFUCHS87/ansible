@@ -14,7 +14,7 @@ If you already have Docker containers running, make sure the ports 8123 and 8581
 ## 🧾 What This Does
 - ✅ Secures the system with SSH hardening and automatic security updates
 - ✅ Detects and properly installs Docker with all dependencies
-- ✅ Prompts you whether to install Home Assistant and/or Homebridge
+- ✅ Prompts you whether to install Home Assistant, Homebridge, Cockpit, and/or Plex
 - ✅ Configures firewall rules for enabled services
 - ✅ Deploys each service in its own Docker container with health checks
 - ✅ Provides cleanup capabilities
@@ -36,7 +36,9 @@ If you already have Docker containers running, make sure the ports 8123 and 8581
     ├── docker/                   # Docker installation
     ├── firewall/                 # UFW firewall setup
     ├── homeassistant/           # Home Assistant deployment
-    └── homebridge/              # Homebridge deployment
+    ├── homebridge/              # Homebridge deployment
+    ├── cockpit/                 # Cockpit web console
+    └── plex/                    # Plex Media Server
 ```
 
 ---
@@ -64,6 +66,8 @@ If you already have Docker containers running, make sure the ports 8123 and 8581
 4. **Answer the prompts:**
    - Install Home Assistant? (yes/no)
    - Install Homebridge? (yes/no)
+   - Install Cockpit web console? (yes/no)
+   - Install Plex Media Server? (yes/no)
 
 ---
 
@@ -84,6 +88,16 @@ ansible-playbook -i inventory.friend.yml site.yml --tags base
 ansible-playbook -i inventory.friend.yml site.yml --tags homeassistant
 ```
 
+**Only Cockpit:**
+```bash
+ansible-playbook -i inventory.friend.yml site.yml --tags cockpit
+```
+
+**Only Plex:**
+```bash
+ansible-playbook -i inventory.friend.yml site.yml --tags plex
+```
+
 **Cleanup services:**
 ```bash
 ansible-playbook -i inventory.friend.yml playbooks/cleanup.yml
@@ -96,6 +110,8 @@ ansible-playbook -i inventory.friend.yml playbooks/cleanup.yml
 After successful deployment:
 - **Home Assistant**: http://your-server-ip:8123 (if selected)
 - **Homebridge**: http://your-server-ip:8581 (if selected)
+- **Cockpit Web Console**: https://your-server-ip:9090 (if selected)
+- **Plex Media Server**: http://your-server-ip:32400/web (if selected)
 - **Secured SSH**: Password authentication disabled, root login disabled
 - **Automatic updates**: Security updates install automatically
 - **Firewall**: UFW configured with only necessary ports open

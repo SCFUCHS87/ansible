@@ -38,6 +38,22 @@
     comment: "Homebridge"
   when: install_homebridge | default(false) | bool
 
+- name: Allow Cockpit port
+  ufw:
+    rule: allow
+    port: 9090
+    proto: tcp
+    comment: "Cockpit Web Console"
+  when: install_cockpit | default(false) | bool
+
+- name: Allow Plex port
+  ufw:
+    rule: allow
+    port: 32400
+    proto: tcp
+    comment: "Plex Media Server"
+  when: install_plex | default(false) | bool
+
 - name: Enable UFW
   ufw:
     state: enabled

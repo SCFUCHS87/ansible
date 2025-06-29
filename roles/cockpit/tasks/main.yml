@@ -1,0 +1,48 @@
+---
+# roles/cockpit/tasks/main.yml
+- name: Update apt package cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Install Cockpit
+  apt:
+    name:
+      - cockpit
+      - cockpit-docker
+      - cockpit-podman
+    state: present
+
+- name: Enable and start Cockpit service
+  systemd:
+    name: cockpit.socket
+    enabled: yes
+    state: started
+
+- name: Check if Cockpit is running
+  wait_for:
+    host: "{{ ansible_default_ipv4.address }}"
+    port: 9090
+    delay: 5
+    timeout: 30
+  register: cockpit_startup
+
+- name: Display Cockpit startup result
+  debug:
+    msg: |
+      {% if cockpit_startup.failed %}
+      ⚠️  Cockpit may be starting up - check status with: systemctl status cockpit.socket
+      {% else %}
+      ✅ Cockpit is running at: https://{{ ansible_default_ipv4.address }}:9090
+      {% endif %}
+
+- name: Show Cockpit access info
+  debug:
+    msg: |
+      📋 Cockpit Web Console Access:
+      1. Visit: https://{{ ansible_default_ipv4.address }}:9090
+      2. Login with your system user credentials
+      3. Accept the self-signed certificate warning
+      4. Use Docker tab to manage containers
+      
+      🔐 Security: Cockpit uses system authentication
