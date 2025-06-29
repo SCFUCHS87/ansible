@@ -2,10 +2,12 @@
 
 set -e
 
-RELEASE_URL="https://github.com/SCFUCHS87/ansible/archive/refs/tags/friend-setup-v1.0.0.tar.gz"
+LATEST_TAG=$(curl -s https://api.github.com/repos/SCFUCHS87/ansible/releases/latest | jq -r .tag_name)
+INSTALL_URL="https://raw.githubusercontent.com/SCFUCHS87/ansible/${LATEST_TAG}/install_friend_setup.sh"
 
-echo "📦 Downloading friend-setup..."
-curl -L "$RELEASE_URL" -o friend-setup.tar.gz
+echo "📦 Downloading Friend Setup v${LATEST_TAG}..."
+curl -sL "${INSTALL_URL}" | bash
+
 
 echo "📂 Extracting..."
 tar -xzf friend-setup.tar.gz
