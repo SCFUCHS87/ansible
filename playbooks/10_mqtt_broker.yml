@@ -1,0 +1,6 @@
+---
+- name: Deploy MQTT Broker
+  hosts: pi_cluster
+  become: yes
+  roles:
+    - mqtt_broker

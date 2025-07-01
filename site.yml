@@ -27,3 +27,9 @@
 
 - import_playbook: playbooks/09_homebridge.yml
   when: enable_homebridge | default(false)
+
+- import_playbook: playbooks/10_mqtt_broker.yml
+  when: enable_mqtt | default(false)
+
+- import_playbook: playbooks/11_nodered.yml
+  when: enable_nodered | default(false)

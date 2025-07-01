@@ -1,0 +1,106 @@
+---
+- name: Install Node.js and npm
+  apt:
+    name:
+      - nodejs
+      - npm
+      - build-essential
+    state: present
+    update_cache: yes
+  become: yes
+
+- name: Create nodered user
+  user:
+    name: nodered
+    shell: /bin/bash
+    home: /home/nodered
+    create_home: yes
+    system: no
+  become: yes
+
+- name: Create Node-RED directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: nodered
+    group: nodered
+    mode: '0755'
+  become: yes
+  loop:
+    - /home/nodered/.node-red
+    - /home/nodered/.node-red/projects
+
+- name: Install Node-RED globally
+  npm:
+    name: node-red
+    global: yes
+    state: present
+  become: yes
+
+- name: Install Node-RED additional nodes
+  npm:
+    name: "{{ item }}"
+    path: /home/nodered/.node-red
+    state: present
+  become: yes
+  become_user: nodered
+  loop:
+    - node-red-contrib-homekit-bridged
+    - node-red-contrib-mqtt-broker
+    - node-red-node-email
+    - node-red-dashboard
+    - node-red-contrib-home-assistant-websocket
+
+- name: Create Node-RED settings file
+  template:
+    src: settings.js.j2
+    dest: /home/nodered/.node-red/settings.js
+    owner: nodered
+    group: nodered
+    mode: '0644'
+  become: yes
+  notify: restart nodered
+
+- name: Create Node-RED systemd service
+  template:
+    src: nodered.service.j2
+    dest: /etc/systemd/system/nodered.service
+    mode: '0644'
+  become: yes
+  notify:
+    - reload systemd
+    - restart nodered
+
+- name: Deploy example Homebridge-MQTT flows
+  copy:
+    src: homebridge-mqtt-flows.json
+    dest: /home/nodered/.node-red/flows_homebridge.json
+    owner: nodered
+    group: nodered
+    mode: '0644'
+  become: yes
+  when: enable_homebridge | default(false) and enable_mqtt | default(false)
+
+- name: Enable and start Node-RED service
+  systemd:
+    name: nodered
+    enabled: yes
+    state: started
+    daemon_reload: yes
+  become: yes
+
+- name: Open Node-RED port in firewall
+  ufw:
+    rule: allow
+    port: '1880'
+    proto: tcp
+  become: yes
+  when: enable_firewall | default(true)
+
+- name: Open HomeKit port in firewall for Node-RED bridge
+  ufw:
+    rule: allow
+    port: '51826'
+    proto: tcp
+  become: yes
+  when: enable_firewall | default(true) and enable_homebridge | default(false)

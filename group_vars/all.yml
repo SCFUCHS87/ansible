@@ -16,4 +16,11 @@ enable_containers: true
 enable_homeassistant: true
 enable_k3s: true
 enable_traefik: false
-enable_homebridge: false
+enable_homebridge: true
+enable_mqtt: true
+enable_nodered: true
+
+# MQTT Configuration
+mqtt_auth_enabled: false
+mqtt_username: "mqtt_user"
+mqtt_password: "mqtt_password"

@@ -1,0 +1,6 @@
+---
+- name: Deploy Node-RED
+  hosts: pi_cluster
+  become: yes
+  roles:
+    - nodered

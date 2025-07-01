@@ -19,6 +19,8 @@ ansible-playbook -i inventory/hosts.yml playbooks/06_traefik_ingress.yml
 ansible-playbook -i inventory/hosts.yml playbooks/07_k3s_control_plane.yml
 ansible-playbook -i inventory/hosts.yml playbooks/08_k3s_worker_nodes.yml
 ansible-playbook -i inventory/hosts.yml playbooks/09_homebridge.yml
+ansible-playbook -i inventory/hosts.yml playbooks/10_mqtt_broker.yml
+ansible-playbook -i inventory/hosts.yml playbooks/11_nodered.yml
 
 # Using tags for selective deployment
 ansible-playbook -i inventory/hosts.yml site.yml --tags base
@@ -59,7 +61,8 @@ This is a modular Ansible repository for managing Raspberry Pi infrastructure wi
 1. **Base Layer** (`base` role): System updates, security hardening, essential packages
 2. **Display Layer** (`touchscreen`, `dakboard` roles): Kiosk functionality with display management
 3. **Container Layer** (`container_prep` role): Docker and Kubernetes prerequisites
-4. **Application Layer** (K8s deployments): Home Assistant, Homebridge, Traefik
+4. **IoT/Automation Layer** (`mqtt_broker`, `nodered` roles): MQTT messaging and Node-RED automation
+5. **Application Layer** (K8s deployments): Home Assistant, Homebridge, Traefik
 
 #### Host Groups
 - `pi_cluster`: All Raspberry Pi nodes
@@ -75,6 +78,8 @@ Control deployment scope via `group_vars/all.yml`:
 - `enable_k3s`: Kubernetes cluster setup
 - `enable_traefik`: Traefik ingress controller for K8s
 - `enable_homebridge`: Homebridge K8s deployment
+- `enable_mqtt`: MQTT broker (Mosquitto) for IoT messaging
+- `enable_nodered`: Node-RED automation platform with Homebridge integration
 
 ### Key Files
 - `site.yml`: Main orchestration playbook that imports all component playbooks
@@ -94,3 +99,6 @@ Control deployment scope via `group_vars/all.yml`:
 - DAKboard role creates dedicated `dakboard` user for kiosk mode
 - K8s deployments are file-based (YAML manifests in `roles/*/files/`)
 - Touchscreen role includes comprehensive display power management with systemd timers
+- MQTT broker runs on port 1883 with optional authentication
+- Node-RED runs on port 1880 with Homebridge integration on port 51826
+- Node-RED includes example flows for MQTT to HomeKit bridge functionality
