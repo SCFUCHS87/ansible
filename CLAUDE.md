@@ -19,7 +19,7 @@ ansible-playbook -i inventory/hosts.yml playbooks/06_traefik_ingress.yml
 ansible-playbook -i inventory/hosts.yml playbooks/07_k3s_control_plane.yml
 ansible-playbook -i inventory/hosts.yml playbooks/08_k3s_worker_nodes.yml
 ansible-playbook -i inventory/hosts.yml playbooks/09_homebridge.yml
-ansible-playbook -i inventory/hosts.yml playbooks/10_mqtt_broker.yml
+ansible-playbook -i inventory/hosts.yml playbooks/10_mqtt.yml
 ansible-playbook -i inventory/hosts.yml playbooks/11_nodered.yml
 
 # Using tags for selective deployment
@@ -61,7 +61,7 @@ This is a modular Ansible repository for managing Raspberry Pi infrastructure wi
 1. **Base Layer** (`base` role): System updates, security hardening, essential packages
 2. **Display Layer** (`touchscreen`, `dakboard` roles): Kiosk functionality with display management
 3. **Container Layer** (`container_prep` role): Docker and Kubernetes prerequisites
-4. **IoT/Automation Layer** (`mqtt_broker`, `nodered` roles): MQTT messaging and Node-RED automation
+4. **IoT/Automation Layer** (`mqtt`, `nodered` roles): MQTT messaging and Node-RED automation
 5. **Application Layer** (K8s deployments): Home Assistant, Homebridge, Traefik
 
 #### Host Groups
