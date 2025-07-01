@@ -1,0 +1,43 @@
+---
+- name: Deploy AI Stack (Open WebUI + TTS/STT + Gateway)
+  hosts: control
+  become: yes
+  roles:
+    - role: k8s_open_webui
+      when: enable_open_webui | default(false)
+    - role: k8s_piper
+      when: enable_piper | default(false)
+    - role: k8s_whisper
+      when: enable_whisper | default(false)
+    - role: k8s_ai_gateway
+      when: enable_ai_gateway | default(false)
+
+  post_tasks:
+    - name: Display AI Stack access information
+      debug:
+        msg: |
+          ================================
+          🤖 AI Stack Deployment Complete!
+          ================================
+          
+          📊 Open WebUI: http://{{ ansible_host }}:31080
+          🗣️  Piper TTS: tcp://{{ ansible_host }}:31200
+          👂 Whisper STT: tcp://{{ ansible_host }}:31300
+          🚪 AI Gateway: http://{{ ansible_host }}:31000
+          
+          🔗 External LLM Server: {{ external_ollama_url }}
+          
+          Configuration Notes:
+          - Open WebUI connects to your external Ollama server
+          - Piper provides text-to-speech via Wyoming protocol
+          - Whisper provides speech-to-text via Wyoming protocol  
+          - AI Gateway proxies requests to local/cloud LLMs
+          
+          Next Steps:
+          1. Verify external Ollama server is running at {{ external_ollama_url }}
+          2. Access Open WebUI and create your first user account
+          3. Test TTS/STT integration with Home Assistant
+          4. Configure API keys in vault.yml for cloud LLM access
+          
+          ================================
+      when: enable_ai_stack | default(false)

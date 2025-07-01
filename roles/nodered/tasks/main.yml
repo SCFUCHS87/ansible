@@ -119,7 +119,7 @@
     state: present
   when: homeassistant_token is defined
 
-- name: Deploy Node-RED to Kubernetes
+- name: Deploy Node-RED to Kubernetes (without HA token)
   kubernetes.core.k8s:
     definition:
       apiVersion: apps/v1
@@ -150,13 +150,6 @@
                 value: "mqtt-broker.mqtt.svc.cluster.local"
               - name: HA_URL
                 value: "{{ homeassistant_url | default('http://homeassistant.default.svc.cluster.local:8123') }}"
-              {% if homeassistant_token is defined %}
-              - name: HA_TOKEN
-                valueFrom:
-                  secretKeyRef:
-                    name: homeassistant-token
-                    key: token
-              {% endif %}
               volumeMounts:
               - name: nodered-data
                 mountPath: /data
@@ -196,6 +189,84 @@
               configMap:
                 name: nodered-flows
     state: present
+  when: not (homeassistant_token is defined and homeassistant_token != "")
+
+- name: Deploy Node-RED to Kubernetes (with HA token)
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: nodered
+        namespace: nodered
+        labels:
+          app: nodered
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            app: nodered
+        template:
+          metadata:
+            labels:
+              app: nodered
+          spec:
+            containers:
+            - name: nodered
+              image: nodered/node-red:latest
+              ports:
+              - containerPort: 1880
+                name: http
+              env:
+              - name: MQTT_BROKER
+                value: "mqtt-broker.mqtt.svc.cluster.local"
+              - name: HA_URL
+                value: "{{ homeassistant_url | default('http://homeassistant.default.svc.cluster.local:8123') }}"
+              - name: HA_TOKEN
+                valueFrom:
+                  secretKeyRef:
+                    name: homeassistant-token
+                    key: token
+              volumeMounts:
+              - name: nodered-data
+                mountPath: /data
+              - name: nodered-settings
+                mountPath: /data/settings.js
+                subPath: settings.js
+              - name: nodered-flows
+                mountPath: /data/flows.json
+                subPath: flows.json
+              resources:
+                requests:
+                  memory: "128Mi"
+                  cpu: "100m"
+                limits:
+                  memory: "512Mi"
+                  cpu: "500m"
+              livenessProbe:
+                httpGet:
+                  path: /
+                  port: 1880
+                initialDelaySeconds: 60
+                periodSeconds: 30
+              readinessProbe:
+                httpGet:
+                  path: /
+                  port: 1880
+                initialDelaySeconds: 30
+                periodSeconds: 10
+            volumes:
+            - name: nodered-data
+              persistentVolumeClaim:
+                claimName: nodered-data
+            - name: nodered-settings
+              configMap:
+                name: nodered-settings
+            - name: nodered-flows
+              configMap:
+                name: nodered-flows
+    state: present
+  when: homeassistant_token is defined and homeassistant_token != ""
 
 - name: Create Node-RED service
   kubernetes.core.k8s:

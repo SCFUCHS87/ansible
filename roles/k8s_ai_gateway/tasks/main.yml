@@ -1,0 +1,271 @@
+---
+- name: Create AI Gateway namespace
+  kubernetes.core.k8s:
+    name: ai-gateway
+    api_version: v1
+    kind: Namespace
+    state: present
+
+- name: Create AI Gateway API keys secret
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: ai-api-keys
+        namespace: ai-gateway
+      type: Opaque
+      data:
+        openai-api-key: "{{ openai_api_key | b64encode }}"
+        anthropic-api-key: "{{ anthropic_api_key | b64encode }}"
+        ollama-url: "{{ ('http://' + external_ollama_host + ':' + external_ollama_port|string) | b64encode }}"
+    state: present
+  when: openai_api_key != "" or anthropic_api_key != ""
+
+- name: Create AI Gateway ConfigMap
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: ai-gateway-config
+        namespace: ai-gateway
+      data:
+        config.yaml: |
+          server:
+            port: 8000
+            host: "0.0.0.0"
+          
+          routes:
+            - path: "/v1/chat/completions"
+              method: "POST"
+              upstream: "local-ollama"
+              headers:
+                Content-Type: "application/json"
+            
+            - path: "/v1/models"
+              method: "GET"
+              upstream: "local-ollama"
+            
+            - path: "/openai/*"
+              method: "*"
+              upstream: "openai"
+              strip_prefix: "/openai"
+            
+            - path: "/anthropic/*"
+              method: "*"
+              upstream: "anthropic"
+              strip_prefix: "/anthropic"
+          
+          upstreams:
+            local-ollama:
+              url: "http://{{ external_ollama_host }}:{{ external_ollama_port }}"
+              timeout: 300
+              
+            openai:
+              url: "https://api.openai.com"
+              timeout: 60
+              headers:
+                Authorization: "Bearer ${OPENAI_API_KEY}"
+            
+            anthropic:
+              url: "https://api.anthropic.com"
+              timeout: 60
+              headers:
+                x-api-key: "${ANTHROPIC_API_KEY}"
+                anthropic-version: "2023-06-01"
+          
+          logging:
+            level: "info"
+            format: "json"
+          
+          cors:
+            enabled: true
+            origins: ["*"]
+            methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+            headers: ["*"]
+    state: present
+
+- name: Deploy AI Gateway to Kubernetes
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: ai-gateway
+        namespace: ai-gateway
+        labels:
+          app: ai-gateway
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            app: ai-gateway
+        template:
+          metadata:
+            labels:
+              app: ai-gateway
+          spec:
+            containers:
+            - name: ai-gateway
+              image: nginx:alpine
+              ports:
+              - containerPort: 8000
+                name: http
+              env:
+              - name: OPENAI_API_KEY
+                valueFrom:
+                  secretKeyRef:
+                    name: ai-api-keys
+                    key: openai-api-key
+                    optional: true
+              - name: ANTHROPIC_API_KEY
+                valueFrom:
+                  secretKeyRef:
+                    name: ai-api-keys
+                    key: anthropic-api-key
+                    optional: true
+              - name: OLLAMA_URL
+                valueFrom:
+                  secretKeyRef:
+                    name: ai-api-keys
+                    key: ollama-url
+              volumeMounts:
+              - name: ai-gateway-config
+                mountPath: /etc/nginx/nginx.conf
+                subPath: nginx.conf
+              - name: gateway-config
+                mountPath: /app/config.yaml
+                subPath: config.yaml
+              resources:
+                requests:
+                  memory: "128Mi"
+                  cpu: "100m"
+                limits:
+                  memory: "256Mi"
+                  cpu: "200m"
+              livenessProbe:
+                httpGet:
+                  path: /health
+                  port: 8000
+                initialDelaySeconds: 30
+                periodSeconds: 10
+              readinessProbe:
+                httpGet:
+                  path: /health
+                  port: 8000
+                initialDelaySeconds: 10
+                periodSeconds: 5
+            volumes:
+            - name: ai-gateway-config
+              configMap:
+                name: ai-gateway-nginx-config
+            - name: gateway-config
+              configMap:
+                name: ai-gateway-config
+    state: present
+
+- name: Create AI Gateway nginx ConfigMap
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: ai-gateway-nginx-config
+        namespace: ai-gateway
+      data:
+        nginx.conf: |
+          events {
+              worker_connections 1024;
+          }
+          
+          http {
+              upstream ollama {
+                  server {{ external_ollama_host }}:{{ external_ollama_port }};
+              }
+              
+              server {
+                  listen 8000;
+                  
+                  location /health {
+                      return 200 "OK";
+                      add_header Content-Type text/plain;
+                  }
+                  
+                  location /v1/ {
+                      proxy_pass http://ollama/v1/;
+                      proxy_set_header Host $host;
+                      proxy_set_header X-Real-IP $remote_addr;
+                      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                      proxy_set_header X-Forwarded-Proto $scheme;
+                      proxy_read_timeout 300s;
+                      proxy_connect_timeout 75s;
+                  }
+                  
+                  location /api/ {
+                      proxy_pass http://ollama/api/;
+                      proxy_set_header Host $host;
+                      proxy_set_header X-Real-IP $remote_addr;
+                      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                      proxy_set_header X-Forwarded-Proto $scheme;
+                      proxy_read_timeout 300s;
+                      proxy_connect_timeout 75s;
+                  }
+              }
+          }
+    state: present
+
+- name: Create AI Gateway service
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: ai-gateway
+        namespace: ai-gateway
+        labels:
+          app: ai-gateway
+      spec:
+        type: ClusterIP
+        ports:
+        - port: 8000
+          targetPort: 8000
+          protocol: TCP
+          name: http
+        selector:
+          app: ai-gateway
+    state: present
+
+- name: Create AI Gateway NodePort service for external access
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: ai-gateway-external
+        namespace: ai-gateway
+        labels:
+          app: ai-gateway
+      spec:
+        type: NodePort
+        ports:
+        - port: 8000
+          targetPort: 8000
+          protocol: TCP
+          name: http
+          nodePort: 31000
+        selector:
+          app: ai-gateway
+    state: present
+  when: ai_gateway_external_access | default(false)
+
+- name: Wait for AI Gateway to be ready
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    name: ai-gateway
+    namespace: ai-gateway
+    wait_condition:
+      type: Available
+      status: "True"
+    wait_timeout: 300

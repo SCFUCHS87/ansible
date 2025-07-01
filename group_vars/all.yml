@@ -22,21 +22,28 @@ enable_nodered: true
 enable_postgresql: true
 enable_pxe_server: false
 
+# AI Stack feature flags
+enable_ai_stack: true
+enable_piper: true
+enable_whisper: true
+enable_open_webui: true
+enable_ai_gateway: true  # API gateway/proxy for routing requests
+
 # MQTT Configuration (K8s deployment)
 mqtt_auth_enabled: false
 mqtt_username: "mqtt_user"
-mqtt_password: "mqtt_password"
+mqtt_password: "{{ vault_mqtt_password }}"
 mqtt_external_access: true
 
 # Node-RED Configuration (K8s deployment)
 nodered_external_access: true
 nodered_install_packages: true
 homeassistant_url: "http://homeassistant.default.svc.cluster.local:8123"
-homeassistant_token: ""  # Set this to your HA long-lived access token
+homeassistant_token: "{{ vault_homeassistant_token }}"
 
 # PostgreSQL Configuration (K8s deployment)
 postgresql_username: "hauser"
-postgresql_password: "hasecret"
+postgresql_password: "{{ vault_postgresql_password }}"
 postgresql_database: "homeassistant"
 postgresql_storage_size: "10Gi"
 
@@ -66,3 +73,27 @@ pxe_pi_devices:
 # pxe_client_gateway: "192.168.1.1"
 # pxe_client_dns: "8.8.8.8 8.8.4.4"
 # pxe_client_interface: "eth0"
+
+# AI Stack Configuration
+# External LLM Server Configuration (hosted elsewhere)
+external_ollama_host: "192.168.1.100"  # IP of your LLM server
+external_ollama_port: 11434
+
+# Piper TTS Configuration
+piper_models:
+  - "en_US-lessac-medium"
+  - "en_US-ryan-high"
+piper_storage_size: "5Gi"
+
+# Whisper STT Configuration  
+whisper_model: "base"  # base, small, medium, large
+whisper_storage_size: "5Gi"
+
+# Open WebUI Configuration
+open_webui_external_access: true
+open_webui_storage_size: "5Gi"
+
+# AI Gateway Configuration (for GPT/Claude APIs)
+ai_gateway_external_access: false
+openai_api_key: "{{ vault_openai_api_key | default('') }}"
+anthropic_api_key: "{{ vault_anthropic_api_key | default('') }}"

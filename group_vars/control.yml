@@ -1,2 +1,12 @@
+---
 # Control plane specific variables
 # The control plane IP is automatically determined from inventory
+
+# K3s control plane configuration
+k3s_version: "latest"
+k3s_token: "{{ vault_k3s_token | default('supersecrettoken') }}"
+k3s_server_location: "/var/lib/rancher/k3s"
+k3s_cluster_init: true
+
+# Additional control plane specific settings
+enable_kubectl_autocomplete: true

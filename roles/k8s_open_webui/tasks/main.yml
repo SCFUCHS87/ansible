@@ -1,0 +1,186 @@
+---
+- name: Create Open WebUI namespace
+  kubernetes.core.k8s:
+    name: open-webui
+    api_version: v1
+    kind: Namespace
+    state: present
+
+- name: Create Open WebUI persistent volume claim
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: open-webui-data
+        namespace: open-webui
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: "{{ open_webui_storage_size }}"
+    state: present
+
+- name: Create Open WebUI ConfigMap
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: open-webui-config
+        namespace: open-webui
+      data:
+        OLLAMA_BASE_URL: "http://{{ external_ollama_host }}:{{ external_ollama_port }}"
+        WEBUI_NAME: "Home AI Assistant"
+        WEBUI_URL: "http://open-webui.open-webui.svc.cluster.local:8080"
+        ENABLE_SIGNUP: "false"
+        DEFAULT_USER_ROLE: "user"
+        ENABLE_IMAGE_GENERATION: "false"
+        ENABLE_COMMUNITY_SHARING: "false"
+    state: present
+
+- name: Deploy Open WebUI to Kubernetes
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: open-webui
+        namespace: open-webui
+        labels:
+          app: open-webui
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            app: open-webui
+        template:
+          metadata:
+            labels:
+              app: open-webui
+          spec:
+            containers:
+            - name: open-webui
+              image: ghcr.io/open-webui/open-webui:main
+              ports:
+              - containerPort: 8080
+                name: http
+              env:
+              - name: OLLAMA_BASE_URL
+                valueFrom:
+                  configMapKeyRef:
+                    name: open-webui-config
+                    key: OLLAMA_BASE_URL
+              - name: WEBUI_NAME
+                valueFrom:
+                  configMapKeyRef:
+                    name: open-webui-config
+                    key: WEBUI_NAME
+              - name: WEBUI_URL
+                valueFrom:
+                  configMapKeyRef:
+                    name: open-webui-config
+                    key: WEBUI_URL
+              - name: ENABLE_SIGNUP
+                valueFrom:
+                  configMapKeyRef:
+                    name: open-webui-config
+                    key: ENABLE_SIGNUP
+              - name: DEFAULT_USER_ROLE
+                valueFrom:
+                  configMapKeyRef:
+                    name: open-webui-config
+                    key: DEFAULT_USER_ROLE
+              - name: ENABLE_IMAGE_GENERATION
+                valueFrom:
+                  configMapKeyRef:
+                    name: open-webui-config
+                    key: ENABLE_IMAGE_GENERATION
+              - name: ENABLE_COMMUNITY_SHARING
+                valueFrom:
+                  configMapKeyRef:
+                    name: open-webui-config
+                    key: ENABLE_COMMUNITY_SHARING
+              volumeMounts:
+              - name: open-webui-data
+                mountPath: /app/backend/data
+              resources:
+                requests:
+                  memory: "512Mi"
+                  cpu: "200m"
+                limits:
+                  memory: "1Gi"
+                  cpu: "500m"
+              livenessProbe:
+                httpGet:
+                  path: /health
+                  port: 8080
+                initialDelaySeconds: 60
+                periodSeconds: 30
+              readinessProbe:
+                httpGet:
+                  path: /health
+                  port: 8080
+                initialDelaySeconds: 30
+                periodSeconds: 10
+            volumes:
+            - name: open-webui-data
+              persistentVolumeClaim:
+                claimName: open-webui-data
+    state: present
+
+- name: Create Open WebUI service
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: open-webui
+        namespace: open-webui
+        labels:
+          app: open-webui
+      spec:
+        type: ClusterIP
+        ports:
+        - port: 8080
+          targetPort: 8080
+          protocol: TCP
+          name: http
+        selector:
+          app: open-webui
+    state: present
+
+- name: Create Open WebUI NodePort service for external access
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: open-webui-external
+        namespace: open-webui
+        labels:
+          app: open-webui
+      spec:
+        type: NodePort
+        ports:
+        - port: 8080
+          targetPort: 8080
+          protocol: TCP
+          name: http
+          nodePort: 31080
+        selector:
+          app: open-webui
+    state: present
+  when: open_webui_external_access | default(true)
+
+- name: Wait for Open WebUI to be ready
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    name: open-webui
+    namespace: open-webui
+    wait_condition:
+      type: Available
+      status: "True"
+    wait_timeout: 300

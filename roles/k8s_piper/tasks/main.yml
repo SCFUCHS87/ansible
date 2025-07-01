@@ -1,0 +1,163 @@
+---
+- name: Create Piper TTS namespace
+  kubernetes.core.k8s:
+    name: piper-tts
+    api_version: v1
+    kind: Namespace
+    state: present
+
+- name: Create Piper TTS persistent volume claim
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: piper-data
+        namespace: piper-tts
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: "{{ piper_storage_size }}"
+    state: present
+
+- name: Create Piper TTS ConfigMap
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: piper-config
+        namespace: piper-tts
+      data:
+        config.json: |
+          {
+            "models_dir": "/app/models",
+            "default_voice": "en_US-lessac-medium",
+            "max_speakers": 1,
+            "enable_cache": true,
+            "cache_dir": "/app/cache"
+          }
+    state: present
+
+- name: Deploy Piper TTS to Kubernetes
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: piper-tts
+        namespace: piper-tts
+        labels:
+          app: piper-tts
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            app: piper-tts
+        template:
+          metadata:
+            labels:
+              app: piper-tts
+          spec:
+            containers:
+            - name: piper-tts
+              image: rhasspy/wyoming-piper:latest
+              ports:
+              - containerPort: 10200
+                name: wyoming
+              args:
+                - "--voice"
+                - "en_US-lessac-medium"
+                - "--uri"
+                - "tcp://0.0.0.0:10200"
+                - "--data-dir"
+                - "/data"
+                - "--download-dir"
+                - "/data"
+              volumeMounts:
+              - name: piper-data
+                mountPath: /data
+              - name: piper-config
+                mountPath: /app/config.json
+                subPath: config.json
+              resources:
+                requests:
+                  memory: "256Mi"
+                  cpu: "100m"
+                limits:
+                  memory: "1Gi"
+                  cpu: "1000m"
+              livenessProbe:
+                tcpSocket:
+                  port: 10200
+                initialDelaySeconds: 30
+                periodSeconds: 10
+              readinessProbe:
+                tcpSocket:
+                  port: 10200
+                initialDelaySeconds: 10
+                periodSeconds: 5
+            volumes:
+            - name: piper-data
+              persistentVolumeClaim:
+                claimName: piper-data
+            - name: piper-config
+              configMap:
+                name: piper-config
+    state: present
+
+- name: Create Piper TTS service
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: piper-tts
+        namespace: piper-tts
+        labels:
+          app: piper-tts
+      spec:
+        type: ClusterIP
+        ports:
+        - port: 10200
+          targetPort: 10200
+          protocol: TCP
+          name: wyoming
+        selector:
+          app: piper-tts
+    state: present
+
+- name: Create Piper TTS NodePort service for external access
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: piper-tts-external
+        namespace: piper-tts
+        labels:
+          app: piper-tts
+      spec:
+        type: NodePort
+        ports:
+        - port: 10200
+          targetPort: 10200
+          protocol: TCP
+          name: wyoming
+          nodePort: 31200
+        selector:
+          app: piper-tts
+    state: present
+
+- name: Wait for Piper TTS to be ready
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    name: piper-tts
+    namespace: piper-tts
+    wait_condition:
+      type: Available
+      status: "True"
+    wait_timeout: 300

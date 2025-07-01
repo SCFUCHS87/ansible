@@ -22,7 +22,7 @@
             storage: 1Gi
     state: present
 
-- name: Create MQTT config ConfigMap
+- name: Create MQTT config ConfigMap (without auth)
   kubernetes.core.k8s:
     definition:
       apiVersion: v1
@@ -34,10 +34,7 @@
         mosquitto.conf: |
           listener 1883
           protocol mqtt
-          allow_anonymous {{ 'false' if mqtt_auth_enabled | default(false) else 'true' }}
-          {% if mqtt_auth_enabled | default(false) %}
-          password_file /mosquitto/config/passwd
-          {% endif %}
+          allow_anonymous true
           persistence true
           persistence_location /mosquitto/data/
           log_dest stdout
@@ -49,6 +46,34 @@
           max_inflight_messages 20
           max_queued_messages 100
     state: present
+  when: not (mqtt_auth_enabled | default(false))
+
+- name: Create MQTT config ConfigMap (with auth)
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: mqtt-config
+        namespace: mqtt
+      data:
+        mosquitto.conf: |
+          listener 1883
+          protocol mqtt
+          allow_anonymous false
+          password_file /mosquitto/config/passwd
+          persistence true
+          persistence_location /mosquitto/data/
+          log_dest stdout
+          log_type error
+          log_type warning
+          log_type notice
+          log_type information
+          max_connections -1
+          max_inflight_messages 20
+          max_queued_messages 100
+    state: present
+  when: mqtt_auth_enabled | default(false)
 
 - name: Create MQTT password secret
   kubernetes.core.k8s:
@@ -64,7 +89,7 @@
     state: present
   when: mqtt_auth_enabled | default(false)
 
-- name: Deploy MQTT (Mosquitto) to Kubernetes
+- name: Deploy MQTT (Mosquitto) to Kubernetes (without auth)
   kubernetes.core.k8s:
     definition:
       apiVersion: apps/v1
@@ -98,11 +123,6 @@
               - name: mqtt-config
                 mountPath: /mosquitto/config/mosquitto.conf
                 subPath: mosquitto.conf
-              {% if mqtt_auth_enabled | default(false) %}
-              - name: mqtt-auth
-                mountPath: /mosquitto/config/passwd
-                subPath: passwd
-              {% endif %}
               livenessProbe:
                 tcpSocket:
                   port: 1883
@@ -120,12 +140,68 @@
             - name: mqtt-config
               configMap:
                 name: mqtt-config
-            {% if mqtt_auth_enabled | default(false) %}
+    state: present
+  when: not (mqtt_auth_enabled | default(false))
+
+- name: Deploy MQTT (Mosquitto) to Kubernetes (with auth)
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: mqtt-broker
+        namespace: mqtt
+        labels:
+          app: mqtt-broker
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            app: mqtt-broker
+        template:
+          metadata:
+            labels:
+              app: mqtt-broker
+          spec:
+            containers:
+            - name: mosquitto
+              image: eclipse-mosquitto:2.0
+              ports:
+              - containerPort: 1883
+                name: mqtt
+              - containerPort: 9001
+                name: websockets
+              volumeMounts:
+              - name: mqtt-data
+                mountPath: /mosquitto/data
+              - name: mqtt-config
+                mountPath: /mosquitto/config/mosquitto.conf
+                subPath: mosquitto.conf
+              - name: mqtt-auth
+                mountPath: /mosquitto/config/passwd
+                subPath: passwd
+              livenessProbe:
+                tcpSocket:
+                  port: 1883
+                initialDelaySeconds: 30
+                periodSeconds: 10
+              readinessProbe:
+                tcpSocket:
+                  port: 1883
+                initialDelaySeconds: 5
+                periodSeconds: 5
+            volumes:
+            - name: mqtt-data
+              persistentVolumeClaim:
+                claimName: mqtt-data
+            - name: mqtt-config
+              configMap:
+                name: mqtt-config
             - name: mqtt-auth
               secret:
                 secretName: mqtt-auth
-            {% endif %}
     state: present
+  when: mqtt_auth_enabled | default(false)
 
 - name: Create MQTT service
   kubernetes.core.k8s:

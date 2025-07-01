@@ -1,0 +1,10 @@
+---
+# Encrypted secrets - replace with your actual tokens
+vault_homeassistant_token: "YOUR_HOME_ASSISTANT_LONG_LIVED_ACCESS_TOKEN_HERE"
+vault_mqtt_password: "your_secure_mqtt_password"
+vault_postgresql_password: "your_secure_postgresql_password"
+vault_k3s_token: "your_secure_k3s_cluster_token"
+
+# AI Stack API Keys (optional - for hybrid cloud setup)
+vault_openai_api_key: "your_openai_api_key_here"
+vault_anthropic_api_key: "your_anthropic_api_key_here"

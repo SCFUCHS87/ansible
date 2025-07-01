@@ -1,0 +1,166 @@
+---
+- name: Create Whisper STT namespace
+  kubernetes.core.k8s:
+    name: whisper-stt
+    api_version: v1
+    kind: Namespace
+    state: present
+
+- name: Create Whisper STT persistent volume claim
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: whisper-data
+        namespace: whisper-stt
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: "{{ whisper_storage_size }}"
+    state: present
+
+- name: Create Whisper STT ConfigMap
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: whisper-config
+        namespace: whisper-stt
+      data:
+        config.json: |
+          {
+            "model": "{{ whisper_model }}",
+            "language": "en",
+            "beam_size": 5,
+            "best_of": 5,
+            "temperature": 0,
+            "enable_vad": true
+          }
+    state: present
+
+- name: Deploy Whisper STT to Kubernetes
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: whisper-stt
+        namespace: whisper-stt
+        labels:
+          app: whisper-stt
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            app: whisper-stt
+        template:
+          metadata:
+            labels:
+              app: whisper-stt
+          spec:
+            containers:
+            - name: whisper-stt
+              image: rhasspy/wyoming-faster-whisper:latest
+              ports:
+              - containerPort: 10300
+                name: wyoming
+              args:
+                - "--model"
+                - "{{ whisper_model }}"
+                - "--language"
+                - "en"
+                - "--uri"
+                - "tcp://0.0.0.0:10300"
+                - "--data-dir"
+                - "/data"
+                - "--download-dir"
+                - "/data"
+              volumeMounts:
+              - name: whisper-data
+                mountPath: /data
+              - name: whisper-config
+                mountPath: /app/config.json
+                subPath: config.json
+              resources:
+                requests:
+                  memory: "512Mi"
+                  cpu: "200m"
+                limits:
+                  memory: "2Gi"
+                  cpu: "2000m"
+              livenessProbe:
+                tcpSocket:
+                  port: 10300
+                initialDelaySeconds: 60
+                periodSeconds: 30
+              readinessProbe:
+                tcpSocket:
+                  port: 10300
+                initialDelaySeconds: 30
+                periodSeconds: 10
+            volumes:
+            - name: whisper-data
+              persistentVolumeClaim:
+                claimName: whisper-data
+            - name: whisper-config
+              configMap:
+                name: whisper-config
+    state: present
+
+- name: Create Whisper STT service
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: whisper-stt
+        namespace: whisper-stt
+        labels:
+          app: whisper-stt
+      spec:
+        type: ClusterIP
+        ports:
+        - port: 10300
+          targetPort: 10300
+          protocol: TCP
+          name: wyoming
+        selector:
+          app: whisper-stt
+    state: present
+
+- name: Create Whisper STT NodePort service for external access
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: whisper-stt-external
+        namespace: whisper-stt
+        labels:
+          app: whisper-stt
+      spec:
+        type: NodePort
+        ports:
+        - port: 10300
+          targetPort: 10300
+          protocol: TCP
+          name: wyoming
+          nodePort: 31300
+        selector:
+          app: whisper-stt
+    state: present
+
+- name: Wait for Whisper STT to be ready
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    name: whisper-stt
+    namespace: whisper-stt
+    wait_condition:
+      type: Available
+      status: "True"
+    wait_timeout: 300

@@ -39,3 +39,6 @@
 
 - import_playbook: playbooks/12_pxe_server.yml
   when: enable_pxe_server | default(false)
+
+- import_playbook: playbooks/13_ai_stack.yml
+  when: enable_ai_stack | default(false)
