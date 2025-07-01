@@ -1,0 +1,181 @@
+---
+- name: Create MQTT namespace
+  kubernetes.core.k8s:
+    name: mqtt
+    api_version: v1
+    kind: Namespace
+    state: present
+
+- name: Create MQTT persistent volume claim
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: mqtt-data
+        namespace: mqtt
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1Gi
+    state: present
+
+- name: Create MQTT config ConfigMap
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: mqtt-config
+        namespace: mqtt
+      data:
+        mosquitto.conf: |
+          listener 1883
+          protocol mqtt
+          allow_anonymous {{ 'false' if mqtt_auth_enabled | default(false) else 'true' }}
+          {% if mqtt_auth_enabled | default(false) %}
+          password_file /mosquitto/config/passwd
+          {% endif %}
+          persistence true
+          persistence_location /mosquitto/data/
+          log_dest stdout
+          log_type error
+          log_type warning
+          log_type notice
+          log_type information
+          max_connections -1
+          max_inflight_messages 20
+          max_queued_messages 100
+    state: present
+
+- name: Create MQTT password secret
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: mqtt-auth
+        namespace: mqtt
+      type: Opaque
+      data:
+        passwd: "{{ (mqtt_username + ':' + mqtt_password) | b64encode }}"
+    state: present
+  when: mqtt_auth_enabled | default(false)
+
+- name: Deploy MQTT (Mosquitto) to Kubernetes
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: mqtt-broker
+        namespace: mqtt
+        labels:
+          app: mqtt-broker
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            app: mqtt-broker
+        template:
+          metadata:
+            labels:
+              app: mqtt-broker
+          spec:
+            containers:
+            - name: mosquitto
+              image: eclipse-mosquitto:2.0
+              ports:
+              - containerPort: 1883
+                name: mqtt
+              - containerPort: 9001
+                name: websockets
+              volumeMounts:
+              - name: mqtt-data
+                mountPath: /mosquitto/data
+              - name: mqtt-config
+                mountPath: /mosquitto/config/mosquitto.conf
+                subPath: mosquitto.conf
+              {% if mqtt_auth_enabled | default(false) %}
+              - name: mqtt-auth
+                mountPath: /mosquitto/config/passwd
+                subPath: passwd
+              {% endif %}
+              livenessProbe:
+                tcpSocket:
+                  port: 1883
+                initialDelaySeconds: 30
+                periodSeconds: 10
+              readinessProbe:
+                tcpSocket:
+                  port: 1883
+                initialDelaySeconds: 5
+                periodSeconds: 5
+            volumes:
+            - name: mqtt-data
+              persistentVolumeClaim:
+                claimName: mqtt-data
+            - name: mqtt-config
+              configMap:
+                name: mqtt-config
+            {% if mqtt_auth_enabled | default(false) %}
+            - name: mqtt-auth
+              secret:
+                secretName: mqtt-auth
+            {% endif %}
+    state: present
+
+- name: Create MQTT service
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: mqtt-broker
+        namespace: mqtt
+        labels:
+          app: mqtt-broker
+      spec:
+        type: ClusterIP
+        ports:
+        - port: 1883
+          targetPort: 1883
+          protocol: TCP
+          name: mqtt
+        - port: 9001
+          targetPort: 9001
+          protocol: TCP
+          name: websockets
+        selector:
+          app: mqtt-broker
+    state: present
+
+- name: Create MQTT NodePort service for external access
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: mqtt-broker-external
+        namespace: mqtt
+        labels:
+          app: mqtt-broker
+      spec:
+        type: NodePort
+        ports:
+        - port: 1883
+          targetPort: 1883
+          protocol: TCP
+          name: mqtt
+          nodePort: 31883
+        - port: 9001
+          targetPort: 9001
+          protocol: TCP
+          name: websockets
+          nodePort: 31901
+        selector:
+          app: mqtt-broker
+    state: present
+  when: mqtt_external_access | default(true)

@@ -28,8 +28,14 @@
 - import_playbook: playbooks/09_homebridge.yml
   when: enable_homebridge | default(false)
 
-- import_playbook: playbooks/10_mqtt_broker.yml
+- import_playbook: playbooks/10_mqtt.yml
   when: enable_mqtt | default(false)
 
 - import_playbook: playbooks/11_nodered.yml
   when: enable_nodered | default(false)
+
+- import_playbook: playbooks/12_postgresql.yml
+  when: enable_postgresql | default(false)
+
+- import_playbook: playbooks/12_pxe_server.yml
+  when: enable_pxe_server | default(false)

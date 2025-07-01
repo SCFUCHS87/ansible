@@ -1,0 +1,14 @@
+DEFAULT menu.c32
+PROMPT 0
+TIMEOUT 100
+
+MENU TITLE Raspberry Pi PXE Boot Menu
+
+LABEL raspios
+  MENU LABEL Raspberry Pi OS Lite
+  KERNEL pi/kernel8.img
+  APPEND console=serial0,115200 console=tty1 root=/dev/nfs nfsroot={{ ansible_default_ipv4.address }}:/srv/nfs/pi,vers=3 rw ip=dhcp rootwait elevator=deadline
+
+LABEL local
+  MENU LABEL Boot from local disk
+  LOCALBOOT 0

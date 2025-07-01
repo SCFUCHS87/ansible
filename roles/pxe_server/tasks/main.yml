@@ -1,0 +1,214 @@
+---
+- name: Install PXE server packages
+  apt:
+    name:
+      - dnsmasq
+      - nfs-kernel-server
+      - tftpd-hpa
+      - pxelinux
+      - syslinux-common
+      - wget
+      - unzip
+    state: present
+    update_cache: yes
+  become: yes
+
+- name: Create PXE directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  become: yes
+  loop:
+    - /srv/tftp
+    - /srv/tftp/pxelinux.cfg
+    - /srv/nfs
+    - /srv/nfs/pi
+    - /srv/pxe
+    - /srv/pxe/images
+
+- name: Copy PXE boot files
+  copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: '0644'
+  become: yes
+  loop:
+    - { src: '/usr/lib/PXELINUX/pxelinux.0', dest: '/srv/tftp/pxelinux.0' }
+    - { src: '/usr/lib/syslinux/modules/bios/ldlinux.c32', dest: '/srv/tftp/ldlinux.c32' }
+    - { src: '/usr/lib/syslinux/modules/bios/libcom32.c32', dest: '/srv/tftp/libcom32.c32' }
+    - { src: '/usr/lib/syslinux/modules/bios/libutil.c32', dest: '/srv/tftp/libutil.c32' }
+    - { src: '/usr/lib/syslinux/modules/bios/menu.c32', dest: '/srv/tftp/menu.c32' }
+
+- name: Download Raspberry Pi OS Lite image
+  get_url:
+    url: "{{ raspios_image_url | default('https://downloads.raspberrypi.org/raspios_lite_armhf/images/raspios_lite_armhf-2023-05-03/2023-05-03-raspios-bullseye-armhf-lite.zip') }}"
+    dest: "/srv/pxe/raspios.zip"
+    mode: '0644'
+  become: yes
+  when: download_raspios | default(true)
+
+- name: Extract Raspberry Pi OS image
+  unarchive:
+    src: "/srv/pxe/raspios.zip"
+    dest: "/srv/pxe/images/"
+    remote_src: yes
+    creates: "/srv/pxe/images/{{ raspios_image_name | default('2023-05-03-raspios-bullseye-armhf-lite.img') }}"
+  become: yes
+  when: download_raspios | default(true)
+
+- name: Mount Raspberry Pi OS boot partition
+  mount:
+    path: /mnt/pi-boot
+    src: "/srv/pxe/images/{{ raspios_image_name | default('2023-05-03-raspios-bullseye-armhf-lite.img') }}"
+    fstype: vfat
+    opts: loop,offset=4194304
+    state: mounted
+  become: yes
+  when: mount_pi_image | default(true)
+
+- name: Mount Raspberry Pi OS root partition
+  mount:
+    path: /mnt/pi-root
+    src: "/srv/pxe/images/{{ raspios_image_name | default('2023-05-03-raspios-bullseye-armhf-lite.img') }}"
+    fstype: ext4
+    opts: loop,offset=272629760
+    state: mounted
+  become: yes
+  when: mount_pi_image | default(true)
+
+- name: Copy Pi boot files to TFTP
+  synchronize:
+    src: /mnt/pi-boot/
+    dest: /srv/tftp/pi/
+    delete: yes
+  become: yes
+  when: mount_pi_image | default(true)
+
+- name: Copy Pi root filesystem to NFS
+  synchronize:
+    src: /mnt/pi-root/
+    dest: /srv/nfs/pi/
+    delete: yes
+  become: yes
+  when: mount_pi_image | default(true)
+
+- name: Unmount Pi partitions
+  mount:
+    path: "{{ item }}"
+    state: unmounted
+  become: yes
+  loop:
+    - /mnt/pi-boot
+    - /mnt/pi-root
+  when: mount_pi_image | default(true)
+
+- name: Configure PXE boot menu
+  template:
+    src: default.j2
+    dest: /srv/tftp/pxelinux.cfg/default
+    mode: '0644'
+  become: yes
+  notify: restart dnsmasq
+
+- name: Configure dnsmasq for PXE
+  template:
+    src: dnsmasq.conf.j2
+    dest: /etc/dnsmasq.conf
+    backup: yes
+    mode: '0644'
+  become: yes
+  notify: restart dnsmasq
+
+- name: Configure TFTP server
+  template:
+    src: tftpd-hpa.j2
+    dest: /etc/default/tftpd-hpa
+    backup: yes
+    mode: '0644'
+  become: yes
+  notify: restart tftpd-hpa
+
+- name: Configure NFS exports
+  template:
+    src: exports.j2
+    dest: /etc/exports
+    backup: yes
+    mode: '0644'
+  become: yes
+  notify:
+    - reload nfs exports
+    - restart nfs-kernel-server
+
+- name: Modify Pi boot configuration for PXE
+  lineinfile:
+    path: /srv/tftp/pi/config.txt
+    line: "{{ item }}"
+    state: present
+  become: yes
+  loop:
+    - "dtoverlay=dwc2"
+    - "enable_uart=1"
+  when: modify_pi_config | default(true)
+
+- name: Modify Pi cmdline for NFS root
+  template:
+    src: cmdline.txt.j2
+    dest: /srv/tftp/pi/cmdline.txt
+    mode: '0644'
+  become: yes
+  when: modify_pi_config | default(true)
+
+- name: Enable SSH in Pi root filesystem
+  file:
+    path: /srv/nfs/pi/boot/ssh
+    state: touch
+    modification_time: preserve
+    access_time: preserve
+  become: yes
+  when: enable_ssh_pi | default(true)
+
+- name: Configure Pi network for PXE client
+  template:
+    src: dhcpcd.conf.j2
+    dest: /srv/nfs/pi/etc/dhcpcd.conf
+    backup: yes
+    mode: '0644'
+  become: yes
+  when: configure_pi_network | default(true)
+
+- name: Enable and start services
+  systemd:
+    name: "{{ item }}"
+    enabled: yes
+    state: started
+  become: yes
+  loop:
+    - dnsmasq
+    - tftpd-hpa
+    - nfs-kernel-server
+    - rpcbind
+
+- name: Open firewall ports for PXE services
+  ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: udp
+  become: yes
+  loop:
+    - '67'  # DHCP
+    - '69'  # TFTP
+    - '111' # RPC
+    - '2049' # NFS
+  when: enable_firewall | default(true)
+
+- name: Open firewall ports for NFS (TCP)
+  ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+  become: yes
+  loop:
+    - '111' # RPC
+    - '2049' # NFS
+  when: enable_firewall | default(true)

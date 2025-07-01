@@ -1,0 +1,6 @@
+---
+- name: Deploy PostgreSQL to Kubernetes
+  hosts: control
+  become: yes
+  roles:
+    - postgresql

@@ -1,106 +1,268 @@
 ---
-- name: Install Node.js and npm
-  apt:
-    name:
-      - nodejs
-      - npm
-      - build-essential
-    state: present
-    update_cache: yes
-  become: yes
-
-- name: Create nodered user
-  user:
+- name: Create Node-RED namespace
+  kubernetes.core.k8s:
     name: nodered
-    shell: /bin/bash
-    home: /home/nodered
-    create_home: yes
-    system: no
-  become: yes
-
-- name: Create Node-RED directories
-  file:
-    path: "{{ item }}"
-    state: directory
-    owner: nodered
-    group: nodered
-    mode: '0755'
-  become: yes
-  loop:
-    - /home/nodered/.node-red
-    - /home/nodered/.node-red/projects
-
-- name: Install Node-RED globally
-  npm:
-    name: node-red
-    global: yes
+    api_version: v1
+    kind: Namespace
     state: present
-  become: yes
 
-- name: Install Node-RED additional nodes
-  npm:
-    name: "{{ item }}"
-    path: /home/nodered/.node-red
+- name: Create Node-RED persistent volume claim
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: nodered-data
+        namespace: nodered
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 2Gi
     state: present
-  become: yes
-  become_user: nodered
+
+- name: Create Node-RED settings ConfigMap
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: nodered-settings
+        namespace: nodered
+      data:
+        settings.js: |
+          module.exports = {
+              uiPort: process.env.PORT || 1880,
+              mqttReconnectTime: 15000,
+              serialReconnectTime: 15000,
+              debugMaxLength: 1000,
+              functionGlobalContext: {
+                  os: require('os'),
+                  mqtt_broker: process.env.MQTT_BROKER || 'mqtt-broker.mqtt.svc.cluster.local',
+                  homeassistant_url: process.env.HA_URL || 'http://homeassistant.default.svc.cluster.local:8123',
+                  homeassistant_token: process.env.HA_TOKEN || ''
+              },
+              exportGlobalContextKeys: false,
+              logging: {
+                  console: {
+                      level: "info",
+                      metrics: false,
+                      audit: false
+                  }
+              },
+              editorTheme: {
+                  projects: {
+                      enabled: false
+                  }
+              }
+          };
+    state: present
+
+- name: Create Node-RED initial flows ConfigMap
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: nodered-flows
+        namespace: nodered
+      data:
+        flows.json: |
+          [
+              {
+                  "id": "mqtt-ha-tab",
+                  "type": "tab",
+                  "label": "MQTT & Home Assistant",
+                  "disabled": false,
+                  "info": "Integration flows for MQTT and Home Assistant"
+              },
+              {
+                  "id": "mqtt-broker-config",
+                  "type": "mqtt-broker",
+                  "name": "MQTT Broker",
+                  "broker": "mqtt-broker.mqtt.svc.cluster.local",
+                  "port": "1883",
+                  "clientid": "nodered",
+                  "usetls": false,
+                  "compatmode": false,
+                  "keepalive": "60",
+                  "cleansession": true
+              },
+              {
+                  "id": "ha-server-config",
+                  "type": "server",
+                  "name": "Home Assistant",
+                  "version": 4,
+                  "addon": false,
+                  "rejectUnauthorizedCerts": true,
+                  "ha_boolean": "y|yes|true|on|home|open",
+                  "connectionDelay": true,
+                  "cacheJson": true,
+                  "heartbeat": false,
+                  "heartbeatInterval": 30
+              }
+          ]
+    state: present
+
+- name: Create Home Assistant secret
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: homeassistant-token
+        namespace: nodered
+      type: Opaque
+      data:
+        token: "{{ homeassistant_token | default('') | b64encode }}"
+    state: present
+  when: homeassistant_token is defined
+
+- name: Deploy Node-RED to Kubernetes
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: nodered
+        namespace: nodered
+        labels:
+          app: nodered
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            app: nodered
+        template:
+          metadata:
+            labels:
+              app: nodered
+          spec:
+            containers:
+            - name: nodered
+              image: nodered/node-red:latest
+              ports:
+              - containerPort: 1880
+                name: http
+              env:
+              - name: MQTT_BROKER
+                value: "mqtt-broker.mqtt.svc.cluster.local"
+              - name: HA_URL
+                value: "{{ homeassistant_url | default('http://homeassistant.default.svc.cluster.local:8123') }}"
+              {% if homeassistant_token is defined %}
+              - name: HA_TOKEN
+                valueFrom:
+                  secretKeyRef:
+                    name: homeassistant-token
+                    key: token
+              {% endif %}
+              volumeMounts:
+              - name: nodered-data
+                mountPath: /data
+              - name: nodered-settings
+                mountPath: /data/settings.js
+                subPath: settings.js
+              - name: nodered-flows
+                mountPath: /data/flows.json
+                subPath: flows.json
+              resources:
+                requests:
+                  memory: "128Mi"
+                  cpu: "100m"
+                limits:
+                  memory: "512Mi"
+                  cpu: "500m"
+              livenessProbe:
+                httpGet:
+                  path: /
+                  port: 1880
+                initialDelaySeconds: 60
+                periodSeconds: 30
+              readinessProbe:
+                httpGet:
+                  path: /
+                  port: 1880
+                initialDelaySeconds: 30
+                periodSeconds: 10
+            volumes:
+            - name: nodered-data
+              persistentVolumeClaim:
+                claimName: nodered-data
+            - name: nodered-settings
+              configMap:
+                name: nodered-settings
+            - name: nodered-flows
+              configMap:
+                name: nodered-flows
+    state: present
+
+- name: Create Node-RED service
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: nodered
+        namespace: nodered
+        labels:
+          app: nodered
+      spec:
+        type: ClusterIP
+        ports:
+        - port: 1880
+          targetPort: 1880
+          protocol: TCP
+          name: http
+        selector:
+          app: nodered
+    state: present
+
+- name: Create Node-RED NodePort service for external access
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: nodered-external
+        namespace: nodered
+        labels:
+          app: nodered
+      spec:
+        type: NodePort
+        ports:
+        - port: 1880
+          targetPort: 1880
+          protocol: TCP
+          name: http
+          nodePort: 31880
+        selector:
+          app: nodered
+    state: present
+  when: nodered_external_access | default(true)
+
+- name: Wait for Node-RED to be ready
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    name: nodered
+    namespace: nodered
+    wait_condition:
+      type: Available
+      status: "True"
+    wait_timeout: 300
+  register: nodered_deployment
+
+- name: Install additional Node-RED packages
+  kubernetes.core.k8s_exec:
+    namespace: nodered
+    pod: "{{ nodered_deployment.resources[0].metadata.name }}"
+    container: nodered
+    command: npm install {{ item }}
   loop:
-    - node-red-contrib-homekit-bridged
-    - node-red-contrib-mqtt-broker
-    - node-red-node-email
-    - node-red-dashboard
     - node-red-contrib-home-assistant-websocket
-
-- name: Create Node-RED settings file
-  template:
-    src: settings.js.j2
-    dest: /home/nodered/.node-red/settings.js
-    owner: nodered
-    group: nodered
-    mode: '0644'
-  become: yes
-  notify: restart nodered
-
-- name: Create Node-RED systemd service
-  template:
-    src: nodered.service.j2
-    dest: /etc/systemd/system/nodered.service
-    mode: '0644'
-  become: yes
-  notify:
-    - reload systemd
-    - restart nodered
-
-- name: Deploy example Homebridge-MQTT flows
-  copy:
-    src: homebridge-mqtt-flows.json
-    dest: /home/nodered/.node-red/flows_homebridge.json
-    owner: nodered
-    group: nodered
-    mode: '0644'
-  become: yes
-  when: enable_homebridge | default(false) and enable_mqtt | default(false)
-
-- name: Enable and start Node-RED service
-  systemd:
-    name: nodered
-    enabled: yes
-    state: started
-    daemon_reload: yes
-  become: yes
-
-- name: Open Node-RED port in firewall
-  ufw:
-    rule: allow
-    port: '1880'
-    proto: tcp
-  become: yes
-  when: enable_firewall | default(true)
-
-- name: Open HomeKit port in firewall for Node-RED bridge
-  ufw:
-    rule: allow
-    port: '51826'
-    proto: tcp
-  become: yes
-  when: enable_firewall | default(true) and enable_homebridge | default(false)
+    - node-red-dashboard
+    - node-red-contrib-homekit-bridged
+    - node-red-node-email
+  ignore_errors: yes
+  when: nodered_install_packages | default(true)

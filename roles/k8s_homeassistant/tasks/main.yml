@@ -3,4 +3,4 @@
   kubernetes.core.k8s:
     kubeconfig: /etc/rancher/k3s/k3s.yaml
     state: present
-    definition: "{{ lookup('file', 'files/deployment.yaml') | from_yaml }}"
+    definition: "{{ lookup('template', 'deployment.yaml.j2') | from_yaml_all | list }}"

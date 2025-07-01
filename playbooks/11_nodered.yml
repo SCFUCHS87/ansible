@@ -1,6 +1,6 @@
 ---
-- name: Deploy Node-RED
-  hosts: pi_cluster
+- name: Deploy Node-RED to Kubernetes
+  hosts: control
   become: yes
   roles:
     - nodered

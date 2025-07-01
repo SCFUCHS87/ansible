@@ -1,0 +1,22 @@
+---
+- name: restart dnsmasq
+  systemd:
+    name: dnsmasq
+    state: restarted
+  become: yes
+
+- name: restart tftpd-hpa
+  systemd:
+    name: tftpd-hpa
+    state: restarted
+  become: yes
+
+- name: restart nfs-kernel-server
+  systemd:
+    name: nfs-kernel-server
+    state: restarted
+  become: yes
+
+- name: reload nfs exports
+  command: exportfs -ra
+  become: yes

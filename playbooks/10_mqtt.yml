@@ -1,0 +1,6 @@
+---
+- name: Deploy MQTT Broker to Kubernetes
+  hosts: control
+  become: yes
+  roles:
+    - mqtt

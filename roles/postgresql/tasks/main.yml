@@ -1,0 +1,11 @@
+---
+- name: Deploy PostgreSQL to Kubernetes
+  kubernetes.core.k8s:
+    kubeconfig: /etc/rancher/k3s/k3s.yaml
+    state: present
+    definition: "{{ lookup('file', 'files/' + item) | from_yaml }}"
+  loop:
+    - secret.yaml
+    - pvc.yaml
+    - deployment.yaml
+    - service.yaml

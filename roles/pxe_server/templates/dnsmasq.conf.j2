@@ -1,0 +1,19 @@
+# PXE Server Configuration for dnsmasq
+interface={{ pxe_interface | default('eth0') }}
+bind-interfaces
+dhcp-range={{ pxe_dhcp_range | default('192.168.1.100,192.168.1.150,12h') }}
+dhcp-boot=pxelinux.0
+enable-tftp
+tftp-root=/srv/tftp
+pxe-service=0,"Raspberry Pi Network Boot"
+log-dhcp
+dhcp-authoritative
+
+# DNS settings
+server=8.8.8.8
+server=8.8.4.4
+
+# Static leases for known Pi devices
+{% for pi in pxe_pi_devices | default([]) %}
+dhcp-host={{ pi.mac }},{{ pi.ip }},{{ pi.hostname }}
+{% endfor %}

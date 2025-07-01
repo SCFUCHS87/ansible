@@ -19,8 +19,50 @@ enable_traefik: false
 enable_homebridge: true
 enable_mqtt: true
 enable_nodered: true
+enable_postgresql: true
+enable_pxe_server: false
 
-# MQTT Configuration
+# MQTT Configuration (K8s deployment)
 mqtt_auth_enabled: false
 mqtt_username: "mqtt_user"
 mqtt_password: "mqtt_password"
+mqtt_external_access: true
+
+# Node-RED Configuration (K8s deployment)
+nodered_external_access: true
+nodered_install_packages: true
+homeassistant_url: "http://homeassistant.default.svc.cluster.local:8123"
+homeassistant_token: ""  # Set this to your HA long-lived access token
+
+# PostgreSQL Configuration (K8s deployment)
+postgresql_username: "hauser"
+postgresql_password: "hasecret"
+postgresql_database: "homeassistant"
+postgresql_storage_size: "10Gi"
+
+# PXE Server Configuration
+pxe_interface: "eth0"
+pxe_dhcp_range: "192.168.1.100,192.168.1.150,12h"
+pxe_nfs_network: "192.168.1.0/24"
+raspios_image_url: "https://downloads.raspberrypi.org/raspios_lite_armhf/images/raspios_lite_armhf-2023-05-03/2023-05-03-raspios-bullseye-armhf-lite.zip"
+raspios_image_name: "2023-05-03-raspios-bullseye-armhf-lite.img"
+download_raspios: true
+mount_pi_image: true
+modify_pi_config: true
+enable_ssh_pi: true
+configure_pi_network: true
+
+# PXE Client devices (optional static assignments)
+pxe_pi_devices:
+  - mac: "b8:27:eb:xx:xx:xx"
+    ip: "192.168.1.101"
+    hostname: "pi-node-01"
+  - mac: "b8:27:eb:yy:yy:yy"
+    ip: "192.168.1.102"
+    hostname: "pi-node-02"
+
+# Optional static IP for PXE clients
+# pxe_client_static_ip: "192.168.1.105/24"
+# pxe_client_gateway: "192.168.1.1"
+# pxe_client_dns: "8.8.8.8 8.8.4.4"
+# pxe_client_interface: "eth0"

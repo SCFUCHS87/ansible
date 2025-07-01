@@ -1,0 +1,94 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: homeassistant
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: homeassistant
+  template:
+    metadata:
+      labels:
+        app: homeassistant
+    spec:
+      containers:
+        - name: homeassistant
+          image: ghcr.io/home-assistant/home-assistant:stable
+          ports:
+            - containerPort: 8123
+{% if enable_postgresql | default(false) %}
+          env:
+            - name: POSTGRES_HOST
+              value: "postgresql.default.svc.cluster.local"
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgresql-secret
+                  key: username
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgresql-secret
+                  key: password
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: postgresql-secret
+                  key: database
+{% endif %}
+          volumeMounts:
+            - mountPath: /config
+              name: config
+{% if enable_postgresql | default(false) %}
+            - mountPath: /config/configuration.yaml
+              name: ha-config
+              subPath: configuration.yaml
+{% endif %}
+      volumes:
+        - name: config
+          hostPath:
+            path: /srv/homeassistant
+            type: DirectoryOrCreate
+{% if enable_postgresql | default(false) %}
+        - name: ha-config
+          configMap:
+            name: homeassistant-config
+{% endif %}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: homeassistant
+spec:
+  selector:
+    app: homeassistant
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8123
+{% if enable_postgresql | default(false) %}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: homeassistant-config
+  namespace: default
+data:
+  configuration.yaml: |
+    # Home Assistant configuration with PostgreSQL recorder
+    default_config:
+
+    recorder:
+      db_url: postgresql://{{ postgresql_username }}:{{ postgresql_password }}@postgresql.default.svc.cluster.local/{{ postgresql_database }}
+      purge_keep_days: 30
+      commit_interval: 5
+      
+    http:
+      use_x_forwarded_for: true
+      trusted_proxies:
+        - 10.0.0.0/8
+        - 172.16.0.0/12
+        - 192.168.0.0/16
+{% endif %}
